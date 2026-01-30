@@ -50,7 +50,7 @@ struct ConfigSettings: View {
 extension ConfigSettings {
     enum ModelsTabSelection: String, CaseIterable {
         case quickSetup = "快速设置"
-        case classic = "经典设置"
+        case classic = "自定义"
     }
 }
 

@@ -397,7 +397,7 @@ enum ProviderTemplates {
         authTypes: [.apiKey],
         envKeys: ["MOONSHOT_API_KEY"],
         defaultModel: "moonshot/kimi-k2.5",
-        baseUrl: "https://api.moonshot.ai/v1",
+        baseUrl: nil,
         apiType: "openai-completions",
         models: [
             ProviderModel(
@@ -441,7 +441,7 @@ enum ProviderTemplates {
         authTypes: [.apiKey],
         envKeys: ["KIMICODE_API_KEY"],
         defaultModel: "kimi-code/kimi-for-coding",
-        baseUrl: "https://api.kimi.com/coding/v1",
+        baseUrl: nil,
         apiType: "openai-completions",
         models: [
             ProviderModel(
@@ -469,7 +469,7 @@ enum ProviderTemplates {
         authTypes: [.apiKey],
         envKeys: ["MINIMAX_API_KEY"],
         defaultModel: "minimax/MiniMax-M2.1",
-        baseUrl: "https://api.minimax.io/anthropic",
+        baseUrl: nil,
         apiType: "anthropic-messages",
         models: [
             ProviderModel(
@@ -541,7 +541,7 @@ enum ProviderTemplates {
         authTypes: [.oauth],
         envKeys: [],
         defaultModel: "qwen-portal/coder-model",
-        baseUrl: "https://portal.qwen.ai/v1",
+        baseUrl: nil,
         apiType: "openai-completions",
         models: [
             ProviderModel(
@@ -605,7 +605,7 @@ enum ProviderTemplates {
         authTypes: [.apiKey],
         envKeys: ["DEEPSEEK_API_KEY"],
         defaultModel: "deepseek/deepseek-chat",
-        baseUrl: "https://api.deepseek.com",
+        baseUrl: nil,
         apiType: "openai-completions",
         models: [
             ProviderModel(

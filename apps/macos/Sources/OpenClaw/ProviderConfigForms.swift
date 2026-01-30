@@ -191,13 +191,9 @@ struct ProviderConfigFormView: View {
                 .font(.headline)
 
             TextField(
-                template.baseUrl ?? "使用默认 URL",
+                "输入 Base URL",
                 text: $customBaseUrl)
                 .textFieldStyle(.roundedBorder)
-
-            Text("留空使用默认值: \(template.baseUrl ?? "内置默认")")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(16)
         .background(
