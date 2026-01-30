@@ -627,29 +627,22 @@ enum ProviderTemplates {
 
     /// 所有支持的提供商模板（按推荐顺序排列）
     static let all: [ProviderTemplate] = [
-        anthropic,
-        openai,
-        openaiCodex,
-        venice,
-        ollama,
-        openrouter,
         moonshot,
         kimiCode,
         minimax,
         glm,
         qwen,
-        xiaomi,
-        opencode
+        xiaomi
     ]
 
     /// 常用/推荐的提供商模板
     static let recommended: [ProviderTemplate] = [
-        anthropic,
-        openai,
-        venice,
-        ollama,
         moonshot,
-        minimax
+        kimiCode,
+        minimax,
+        glm,
+        qwen,
+        xiaomi
     ]
 
     /// 根据 ID 获取模板
@@ -682,6 +675,23 @@ enum ProviderConfigStatus: Equatable {
     }
 }
 
+// MARK: - 模型成本配置
+
+/// 模型成本配置
+struct ModelCost: Codable, Equatable {
+    var input: Int           // 输入成本（每百万 token）
+    var output: Int          // 输出成本（每百万 token）
+    var cacheRead: Int       // 缓存读取成本
+    var cacheWrite: Int      // 缓存写入成本
+
+    init(input: Int = 15, output: Int = 60, cacheRead: Int = 2, cacheWrite: Int = 10) {
+        self.input = input
+        self.output = output
+        self.cacheRead = cacheRead
+        self.cacheWrite = cacheWrite
+    }
+}
+
 // MARK: - 用户配置
 
 /// 用户的提供商配置
@@ -692,6 +702,9 @@ struct ProviderConfig: Identifiable, Codable {
     var apiKey: String?                 // API 密钥（加密存储）
     var selectedModel: String?          // 选择的模型 ID
     var customBaseUrl: String?          // 自定义 Base URL
+    var customApiType: String?          // 自定义 API 类型
+    var inputTypes: [String]?           // 输入类型（如 text, image）
+    var modelCost: ModelCost?           // 模型成本配置
     var additionalSettings: [String: String]?  // 其他设置
 
     init(
@@ -699,12 +712,18 @@ struct ProviderConfig: Identifiable, Codable {
         apiKey: String? = nil,
         selectedModel: String? = nil,
         customBaseUrl: String? = nil,
+        customApiType: String? = nil,
+        inputTypes: [String]? = nil,
+        modelCost: ModelCost? = nil,
         additionalSettings: [String: String]? = nil
     ) {
         self.providerId = providerId
         self.apiKey = apiKey
         self.selectedModel = selectedModel
         self.customBaseUrl = customBaseUrl
+        self.customApiType = customApiType
+        self.inputTypes = inputTypes
+        self.modelCost = modelCost
         self.additionalSettings = additionalSettings
     }
 

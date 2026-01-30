@@ -16,6 +16,14 @@ struct ProviderConfigFormView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
+    // 高级设置状态
+    @State private var customApiType: String = ""
+    @State private var inputTypes: Set<String> = ["text"]
+    @State private var costInput: String = "15"
+    @State private var costOutput: String = "60"
+    @State private var costCacheRead: String = "2"
+    @State private var costCacheWrite: String = "10"
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // 头部
@@ -193,7 +201,8 @@ struct ProviderConfigFormView: View {
             .buttonStyle(.plain)
 
             if showAdvanced {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 16) {
+                    // 自定义 Base URL
                     VStack(alignment: .leading, spacing: 6) {
                         Text("自定义 Base URL")
                             .font(.callout.weight(.medium))
@@ -202,6 +211,94 @@ struct ProviderConfigFormView: View {
                             text: $customBaseUrl)
                             .textFieldStyle(.roundedBorder)
                         Text("留空使用默认值: \(template.baseUrl ?? "内置默认")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    // API 类型选择
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("API 类型")
+                            .font(.callout.weight(.medium))
+                        Picker("API 类型", selection: $customApiType) {
+                            Text("使用默认 (\(template.apiType))").tag("")
+                            Text("OpenAI Completions").tag("openai-completions")
+                            Text("Anthropic Messages").tag("anthropic-messages")
+                        }
+                        .pickerStyle(.menu)
+                        Text("指定 API 请求格式，不同提供商可能使用不同的 API 协议")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    // 输入类型
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("输入类型")
+                            .font(.callout.weight(.medium))
+                        HStack(spacing: 12) {
+                            Toggle("文本", isOn: Binding(
+                                get: { inputTypes.contains("text") },
+                                set: { if $0 { inputTypes.insert("text") } else { inputTypes.remove("text") } }
+                            ))
+                            Toggle("图片", isOn: Binding(
+                                get: { inputTypes.contains("image") },
+                                set: { if $0 { inputTypes.insert("image") } else { inputTypes.remove("image") } }
+                            ))
+                        }
+                        .toggleStyle(.checkbox)
+                        Text("指定模型支持的输入类型")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Divider()
+
+                    // 成本配置
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("成本配置 (每百万 token)")
+                            .font(.callout.weight(.medium))
+
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("输入成本")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                TextField("15", text: $costInput)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("输出成本")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                TextField("60", text: $costOutput)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("缓存读取")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                TextField("2", text: $costCacheRead)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("缓存写入")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                TextField("10", text: $costCacheWrite)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                        }
+
+                        Text("用于计算 API 调用费用的单价配置")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -307,6 +404,55 @@ struct ProviderConfigFormView: View {
 
         // 设置默认认证类型
         authType = template.authTypes.first ?? .apiKey
+
+        // 加载现有的高级配置
+        if let modelsDict = store.configDraft["models"] as? [String: Any],
+           let providersDict = modelsDict["providers"] as? [String: Any],
+           let providerConfig = providersDict[template.id] as? [String: Any] {
+
+            // 加载自定义 Base URL
+            if let baseUrl = providerConfig["baseUrl"] as? String,
+               baseUrl != template.baseUrl {
+                customBaseUrl = baseUrl
+            }
+
+            // 加载自定义 API 类型
+            if let apiType = providerConfig["api"] as? String,
+               apiType != template.apiType {
+                customApiType = apiType
+            }
+
+            // 加载 API 密钥（如果 env 中没有）
+            if apiKey.isEmpty, let key = providerConfig["apiKey"] as? String {
+                apiKey = key
+            }
+
+            // 从第一个模型加载 input 类型和 cost 配置
+            if let models = providerConfig["models"] as? [[String: Any]],
+               let firstModel = models.first {
+
+                // 加载 input 类型
+                if let inputs = firstModel["input"] as? [String] {
+                    inputTypes = Set(inputs)
+                }
+
+                // 加载 cost 配置
+                if let cost = firstModel["cost"] as? [String: Any] {
+                    if let input = cost["input"] as? Int {
+                        costInput = String(input)
+                    }
+                    if let output = cost["output"] as? Int {
+                        costOutput = String(output)
+                    }
+                    if let cacheRead = cost["cacheRead"] as? Int {
+                        costCacheRead = String(cacheRead)
+                    }
+                    if let cacheWrite = cost["cacheWrite"] as? Int {
+                        costCacheWrite = String(cacheWrite)
+                    }
+                }
+            }
+        }
     }
 
     private func saveConfig() async {
@@ -316,12 +462,23 @@ struct ProviderConfigFormView: View {
 
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // 构建成本配置
+        let cost = ModelCost(
+            input: Int(costInput) ?? 15,
+            output: Int(costOutput) ?? 60,
+            cacheRead: Int(costCacheRead) ?? 2,
+            cacheWrite: Int(costCacheWrite) ?? 10
+        )
+
         // 创建配置
         let config = ProviderConfig(
             providerId: template.id,
             apiKey: trimmedKey.isEmpty ? nil : trimmedKey,
             selectedModel: selectedModel.isEmpty ? nil : selectedModel,
-            customBaseUrl: customBaseUrl.isEmpty ? nil : customBaseUrl)
+            customBaseUrl: customBaseUrl.isEmpty ? nil : customBaseUrl,
+            customApiType: customApiType.isEmpty ? nil : customApiType,
+            inputTypes: Array(inputTypes),
+            modelCost: cost)
 
         // 更新配置
         store.updateProviderConfig(config)

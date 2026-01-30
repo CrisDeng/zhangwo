@@ -403,25 +403,72 @@ final class ChannelsStore {
     func updateProviderConfig(_ config: ProviderConfig) {
         guard let template = ProviderTemplates.template(for: config.providerId) else { return }
 
-        // 更新环境变量
+        // 设置 models.mode 为 merge
+        updateConfigValue(path: [.key("models"), .key("mode")], value: "merge")
+
+        // 构建完整的 provider 配置
+        var providerConfig: [String: Any] = [:]
+
+        // 设置 baseUrl（优先使用自定义 URL，否则使用模板默认值）
+        if let customBaseUrl = config.customBaseUrl, !customBaseUrl.isEmpty {
+            providerConfig["baseUrl"] = customBaseUrl
+        } else if let defaultBaseUrl = template.baseUrl {
+            providerConfig["baseUrl"] = defaultBaseUrl
+        }
+
+        // 设置 apiKey
         if let apiKey = config.apiKey, !apiKey.isEmpty {
+            providerConfig["apiKey"] = apiKey
+            // 同时更新环境变量（保持向后兼容）
             if let envKey = template.envKeys.first {
                 updateConfigValue(path: [.key("env"), .key(envKey)], value: apiKey)
             }
         }
+
+        // 设置 api 类型（优先使用用户自定义，否则使用模板默认值）
+        if let customApiType = config.customApiType, !customApiType.isEmpty {
+            providerConfig["api"] = customApiType
+        } else {
+            providerConfig["api"] = template.apiType
+        }
+
+        // 获取用户配置的输入类型和成本
+        let inputTypes = config.inputTypes ?? ["text"]
+        let cost = config.modelCost ?? ModelCost()
+
+        // 构建 models 数组
+        var modelsArray: [[String: Any]] = []
+        for model in template.models {
+            var modelDict: [String: Any] = [
+                "id": model.id,
+                "name": model.name,
+                "reasoning": model.reasoning,
+                "contextWindow": model.contextWindow,
+                "maxTokens": model.maxTokens
+            ]
+            // 添加 input 类型（使用用户配置）
+            modelDict["input"] = inputTypes
+            // 添加 cost 信息（使用用户配置）
+            modelDict["cost"] = [
+                "input": cost.input,
+                "output": cost.output,
+                "cacheRead": cost.cacheRead,
+                "cacheWrite": cost.cacheWrite
+            ]
+            modelsArray.append(modelDict)
+        }
+        providerConfig["models"] = modelsArray
+
+        // 更新 provider 配置
+        updateConfigValue(
+            path: [.key("models"), .key("providers"), .key(config.providerId)],
+            value: providerConfig)
 
         // 更新默认模型
         if let model = config.fullModelRef {
             updateConfigValue(
                 path: [.key("agents"), .key("defaults"), .key("model"), .key("primary")],
                 value: model)
-        }
-
-        // 更新 provider 配置（如果有自定义 baseUrl）
-        if let baseUrl = config.customBaseUrl, !baseUrl.isEmpty {
-            updateConfigValue(
-                path: [.key("models"), .key("providers"), .key(config.providerId), .key("baseUrl")],
-                value: baseUrl)
         }
 
         // 清除缓存状态

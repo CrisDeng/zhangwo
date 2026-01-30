@@ -125,51 +125,22 @@ struct ProviderTemplateGrid: View {
             }
 
             // 推荐提供商
-            VStack(alignment: .leading, spacing: 10) {
-                Text("推荐")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                    ForEach(ProviderTemplates.recommended) { template in
-                        ProviderTemplateCard(
-                            template: template,
-                            isConfigured: store.providerStatus(for: template.id).isConfigured,
-                            isSelected: selectedTemplateId == template.id,
-                            action: {
-                                selectedTemplateId = template.id
-                                onSelect(template)
-                            })
-                    }
-                }
-            }
-
-            // 更多提供商
-            VStack(alignment: .leading, spacing: 10) {
-                Text("更多提供商")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
-                    ForEach(otherProviders) { template in
-                        ProviderTemplateCard(
-                            template: template,
-                            isConfigured: store.providerStatus(for: template.id).isConfigured,
-                            isSelected: selectedTemplateId == template.id,
-                            action: {
-                                selectedTemplateId = template.id
-                                onSelect(template)
-                            })
-                    }
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                ForEach(ProviderTemplates.recommended) { template in
+                    ProviderTemplateCard(
+                        template: template,
+                        isConfigured: store.providerStatus(for: template.id).isConfigured,
+                        isSelected: selectedTemplateId == template.id,
+                        action: {
+                            selectedTemplateId = template.id
+                            onSelect(template)
+                        })
                 }
             }
         }
     }
 
-    private var otherProviders: [ProviderTemplate] {
-        let recommendedIds = Set(ProviderTemplates.recommended.map(\.id))
-        return ProviderTemplates.all.filter { !recommendedIds.contains($0.id) }
-    }
+
 }
 
 // MARK: - 已配置提供商列表视图
