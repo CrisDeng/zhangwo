@@ -33,6 +33,7 @@ struct OnboardingModelConfigContent: View {
     @State private var configuredProviders: [ProviderConfigState] = []
     @State private var selectedModel: String = ""
     @State private var isSavingModel = false
+    @State private var isConfigLoaded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -47,7 +48,13 @@ struct OnboardingModelConfigContent: View {
             // 模型选择
             self.modelSelectionSection
         }
-        .onAppear {
+        .task {
+            // 确保配置已加载，避免保存时覆盖其他配置
+            if !self.store.configLoaded {
+                await self.store.loadConfigSchema()
+                await self.store.loadConfig()
+            }
+            self.isConfigLoaded = self.store.configLoaded
             self.loadConfiguredProviders()
             self.selectedModel = self.store.currentDefaultModel() ?? ""
         }
@@ -221,6 +228,20 @@ struct OnboardingModelConfigContent: View {
 
     private func saveSelectedModel(_ model: String) async {
         guard !model.isEmpty else { return }
+        
+        // 确保配置已加载，避免覆盖其他配置
+        if !self.isConfigLoaded && !self.store.configLoaded {
+            // 如果配置未加载，先加载配置
+            await self.store.loadConfig()
+        }
+        
+        // 再次检查配置是否加载成功
+        guard self.store.configLoaded else { return }
+        
+        // 检查模型是否真的改变，避免不必要的保存和 toast
+        let currentModel = self.store.currentDefaultModel() ?? ""
+        guard model != currentModel else { return }
+        
         self.isSavingModel = true
         defer { self.isSavingModel = false }
 
