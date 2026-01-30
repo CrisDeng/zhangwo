@@ -90,8 +90,8 @@ extension ChannelsSettings {
 
     var qqSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            self.formSection("关于 QQ bot") {
-                Text("QQ bot是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQ bot与 AI 助手进行交互。")
+            self.formSection("关于 QQ 频道") {
+                Text("QQ 频道是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQ 频道与 AI 助手进行交互。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -100,6 +100,34 @@ extension ChannelsSettings {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            self.formSection("连接") {
+                HStack(spacing: 12) {
+                    Button {
+                        Task { await self.store.testQQConnection() }
+                    } label: {
+                        if self.store.qqTestingConnection {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("测试连接")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(self.store.qqTestingConnection)
+
+                    if let result = self.store.qqConnectionTestResult {
+                        if result.success {
+                            Label("已连接", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                        } else {
+                            Label(result.message ?? "连接失败", systemImage: "xmark.circle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                        }
+                    }
+                }
             }
 
             self.qqConfigSection
