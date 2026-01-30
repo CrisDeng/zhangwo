@@ -253,9 +253,11 @@ actor GatewayEndpointStore {
         let initialMode: AppState.ConnectionMode
         if let modeRaw {
             initialMode = AppState.ConnectionMode(rawValue: modeRaw) ?? .local
+            Self.staticLogger.info("GatewayEndpointStore.init: found connectionModeKey=\(modeRaw, privacy: .public) -> initialMode=\(String(describing: initialMode), privacy: .public)")
         } else {
             let seen = UserDefaults.standard.bool(forKey: "openclaw.onboardingSeen")
             initialMode = seen ? .local : .unconfigured
+            Self.staticLogger.info("GatewayEndpointStore.init: no connectionModeKey, onboardingSeen=\(seen) -> initialMode=\(String(describing: initialMode), privacy: .public)")
         }
 
         let port = deps.localPort()
@@ -302,10 +304,12 @@ actor GatewayEndpointStore {
 
     func refresh() async {
         let mode = await self.deps.mode()
+        self.logger.info("GatewayEndpointStore.refresh: deps.mode() returned \(String(describing: mode), privacy: .public)")
         await self.setMode(mode)
     }
 
     func setMode(_ mode: AppState.ConnectionMode) async {
+        self.logger.info("GatewayEndpointStore.setMode called with mode=\(String(describing: mode), privacy: .public)")
         let token = self.deps.token()
         let password = self.deps.password()
         switch mode {
