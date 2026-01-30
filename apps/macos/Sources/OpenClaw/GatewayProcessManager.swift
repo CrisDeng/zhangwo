@@ -58,6 +58,7 @@ final class GatewayProcessManager {
     }
 
     func setActive(_ active: Bool) {
+        self.logger.info("setActive called: active=\(active), currentStatus=\(self.status)")
         // Remote mode should never spawn a local gateway; treat as stopped.
         if CommandResolver.connectionModeIsRemote() {
             self.desiredActive = false
@@ -67,12 +68,14 @@ final class GatewayProcessManager {
             self.logger.info("gateway process skipped: remote mode active")
             return
         }
-        self.logger.debug("gateway active requested active=\(active)")
+        self.logger.info("gateway active requested active=\(active)")
         self.desiredActive = active
         self.refreshEnvironmentStatus()
         if active {
+            self.logger.info("Calling startIfNeeded()")
             self.startIfNeeded()
         } else {
+            self.logger.info("Calling stop()")
             self.stop()
         }
     }
@@ -96,9 +99,14 @@ final class GatewayProcessManager {
     }
 
     func startIfNeeded() {
-        guard self.desiredActive else { return }
+        self.logger.info("startIfNeeded called: desiredActive=\(self.desiredActive), currentStatus=\(self.status)")
+        guard self.desiredActive else {
+            self.logger.info("startIfNeeded skipped: desiredActive is false")
+            return
+        }
         // Do not spawn in remote mode (the gateway should run on the remote host).
         guard !CommandResolver.connectionModeIsRemote() else {
+            self.logger.info("startIfNeeded skipped: remote mode detected")
             self.status = .stopped
             return
         }
@@ -106,19 +114,24 @@ final class GatewayProcessManager {
         // Avoid spawning multiple concurrent "start" tasks that can thrash launchd and flap the port.
         switch self.status {
         case .starting, .running, .attachedExisting:
+            self.logger.info("startIfNeeded skipped: already in active state \(self.status)")
             return
         case .stopped, .failed:
+            self.logger.info("startIfNeeded proceeding: current state is \(self.status)")
             break
         }
         self.status = .starting
-        self.logger.debug("gateway start requested")
+        self.logger.info("gateway start requested, status set to .starting")
 
         // First try to latch onto an already-running gateway to avoid spawning a duplicate.
         Task { [weak self] in
             guard let self else { return }
+            self.logger.info("Starting gateway attachment process")
             if await self.attachExistingGatewayIfAvailable() {
+                self.logger.info("Successfully attached to existing gateway")
                 return
             }
+            self.logger.info("No existing gateway found, enabling launchd gateway")
             await self.enableLaunchdGateway()
         }
     }
@@ -192,29 +205,38 @@ final class GatewayProcessManager {
     /// If successful, mark status as attached and skip spawning a new process.
     private func attachExistingGatewayIfAvailable() async -> Bool {
         let port = GatewayEnvironment.gatewayPort()
+        self.logger.info("Checking for existing gateway on port \(port)")
+        
         let instance = await PortGuardian.shared.describe(port: port)
         let instanceText = instance.map { self.describe(instance: $0) }
         let hasListener = instance != nil
+        
+        self.logger.info("Port \(port) status: hasListener=\(hasListener), instance=\(instanceText ?? "none")")
 
         let attemptAttach = {
             try await self.connection.requestRaw(method: .health, timeoutMs: 2000)
         }
 
-        for attempt in 0..<(hasListener ? 3 : 1) {
+        let maxAttempts = hasListener ? 3 : 1
+        for attempt in 0..<maxAttempts {
+            self.logger.info("Gateway connection attempt \(attempt + 1)/\(maxAttempts)")
             do {
                 let data = try await attemptAttach()
+                self.logger.info("Gateway health check succeeded on attempt \(attempt + 1)")
                 let snap = decodeHealthSnapshot(from: data)
                 let details = self.describe(details: instanceText, port: port, snap: snap)
                 self.existingGatewayDetails = details
                 self.clearLastFailure()
                 self.status = .attachedExisting(details: details)
                 self.appendLog("[gateway] using existing instance: \(details)\n")
-                self.logger.info("gateway using existing instance details=\(details)")
+                self.logger.info("Successfully attached to existing gateway: \(details)")
                 self.refreshControlChannelIfNeeded(reason: "attach existing")
                 self.refreshLog()
                 return true
             } catch {
+                self.logger.warning("Gateway connection attempt \(attempt + 1) failed: \(error.localizedDescription)")
                 if attempt < 2, hasListener {
+                    self.logger.info("Retrying connection after delay...")
                     try? await Task.sleep(nanoseconds: 250_000_000)
                     continue
                 }
@@ -225,16 +247,18 @@ final class GatewayProcessManager {
                     self.status = .failed(reason)
                     self.lastFailureReason = reason
                     self.appendLog("[gateway] existing listener on port \(port) but attach failed: \(reason)\n")
-                    self.logger.warning("gateway attach failed reason=\(reason)")
+                    self.logger.warning("Gateway attach failed after all attempts: \(reason)")
                     return true
                 }
 
                 // No reachable gateway (and no listener) — fall through to spawn.
+                self.logger.info("No gateway listener found on port \(port), proceeding to spawn new gateway")
                 self.existingGatewayDetails = nil
                 return false
             }
         }
 
+        self.logger.info("All gateway connection attempts exhausted")
         self.existingGatewayDetails = nil
         return false
     }
@@ -298,62 +322,77 @@ final class GatewayProcessManager {
     }
 
     private func enableLaunchdGateway() async {
+        self.logger.info("Starting launchd gateway startup process")
         self.existingGatewayDetails = nil
+        
+        self.logger.info("Resolving gateway command configuration")
         let resolution = await Task.detached(priority: .utility) {
             GatewayEnvironment.resolveGatewayCommand()
         }.value
         await MainActor.run { self.environmentStatus = resolution.status }
         guard resolution.command != nil else {
+            self.logger.error("Gateway command resolution failed: \(resolution.status.message)")
             await MainActor.run {
                 self.status = .failed(resolution.status.message)
             }
-            self.logger.error("gateway command resolve failed: \(resolution.status.message)")
             return
         }
+        self.logger.info("Gateway command resolved successfully")
 
         if GatewayLaunchAgentManager.isLaunchAgentWriteDisabled() {
             let message = "Launchd disabled; start the Gateway manually or disable attach-only."
             self.status = .failed(message)
             self.lastFailureReason = "launchd disabled"
             self.appendLog("[gateway] launchd disabled; skipping auto-start\n")
-            self.logger.info("gateway launchd enable skipped (disable marker set)")
+            self.logger.warning("Gateway launchd startup skipped: launchd disabled marker set")
             return
         }
 
         let bundlePath = Bundle.main.bundleURL.path
         let port = GatewayEnvironment.gatewayPort()
+        self.logger.info("Configuring launchd gateway: bundlePath=\(bundlePath), port=\(port)")
         self.appendLog("[gateway] enabling launchd job (\(gatewayLaunchdLabel)) on port \(port)\n")
-        self.logger.info("gateway enabling launchd port=\(port)")
+        
         let err = await GatewayLaunchAgentManager.set(enabled: true, bundlePath: bundlePath, port: port)
         if let err {
+            self.logger.error("Gateway launchd enable failed: \(err)")
             self.status = .failed(err)
             self.lastFailureReason = err
-            self.logger.error("gateway launchd enable failed: \(err)")
             return
         }
+        self.logger.info("Gateway launchd service enabled successfully")
 
         // Best-effort: wait for the gateway to accept connections.
+        self.logger.info("Waiting for gateway to start accepting connections (timeout: 6 seconds)")
         let deadline = Date().addingTimeInterval(6)
+        var attemptCount = 0
         while Date() < deadline {
-            if !self.desiredActive { return }
+            attemptCount += 1
+            if !self.desiredActive {
+                self.logger.info("Gateway startup cancelled: desiredActive became false")
+                return
+            }
             do {
+                self.logger.info("Gateway health check attempt \(attemptCount)")
                 _ = try await self.connection.requestRaw(method: .health, timeoutMs: 1500)
+                self.logger.info("Gateway health check succeeded on attempt \(attemptCount)")
                 let instance = await PortGuardian.shared.describe(port: port)
                 let details = instance.map { "pid \($0.pid)" }
                 self.clearLastFailure()
                 self.status = .running(details: details)
-                self.logger.info("gateway started details=\(details ?? "ok")")
+                self.logger.info("Gateway successfully started: details=\(details ?? "ok")")
                 self.refreshControlChannelIfNeeded(reason: "gateway started")
                 self.refreshLog()
                 return
             } catch {
+                self.logger.warning("Gateway health check attempt \(attemptCount) failed: \(error.localizedDescription)")
                 try? await Task.sleep(nanoseconds: 400_000_000)
             }
         }
 
+        self.logger.error("Gateway startup timeout after \(attemptCount) attempts")
         self.status = .failed("Gateway did not start in time")
         self.lastFailureReason = "launchd start timeout"
-        self.logger.warning("gateway start timed out")
     }
 
     private func appendLog(_ chunk: String) {

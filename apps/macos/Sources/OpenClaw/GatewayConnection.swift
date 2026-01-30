@@ -120,89 +120,135 @@ actor GatewayConnection {
         params: [String: AnyCodable]?,
         timeoutMs: Double? = nil) async throws -> Data
     {
+        gatewayConnectionLogger.info("Gateway request starting: method=\(method), timeoutMs=\(timeoutMs ?? 0)")
+        
         let cfg = try await self.configProvider()
+        gatewayConnectionLogger.info("Gateway config resolved: url=\(cfg.url)")
+        
         await self.configure(url: cfg.url, token: cfg.token, password: cfg.password)
         guard let client else {
+            gatewayConnectionLogger.error("Gateway request failed: client not configured")
             throw NSError(domain: "Gateway", code: 0, userInfo: [NSLocalizedDescriptionKey: "gateway not configured"])
         }
 
         do {
-            return try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+            gatewayConnectionLogger.info("Executing gateway request: method=\(method)")
+            let result = try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+            gatewayConnectionLogger.info("Gateway request succeeded: method=\(method)")
+            return result
         } catch {
+            gatewayConnectionLogger.warning("Gateway request failed: method=\(method), error=\(error.localizedDescription)")
+            
             if error is GatewayResponseError || error is GatewayDecodingError {
+                gatewayConnectionLogger.error("Gateway request failed with gateway-specific error: \(error.localizedDescription)")
                 throw error
             }
 
             // Auto-recover in local mode by spawning/attaching a gateway and retrying a few times.
             // Canvas interactions should "just work" even if the local gateway isn't running yet.
             let mode = await MainActor.run { AppStateStore.shared.connectionMode }
+            gatewayConnectionLogger.info("Gateway recovery mode: \(mode)")
+            
             switch mode {
             case .local:
+                gatewayConnectionLogger.info("Local mode recovery: activating gateway process manager")
                 await MainActor.run { GatewayProcessManager.shared.setActive(true) }
 
                 var lastError: Error = error
-                for delayMs in [150, 400, 900] {
+                for (index, delayMs) in [150, 400, 900].enumerated() {
+                    gatewayConnectionLogger.info("Gateway recovery attempt \(index + 1)/3, delay=\(delayMs)ms")
                     try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
                     do {
-                        return try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+                        gatewayConnectionLogger.info("Gateway recovery retry attempt \(index + 1)")
+                        let result = try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+                        gatewayConnectionLogger.info("Gateway recovery retry succeeded")
+                        return result
                     } catch {
                         lastError = error
+                        gatewayConnectionLogger.warning("Gateway recovery retry \(index + 1) failed: \(error.localizedDescription)")
                     }
                 }
 
                 let nsError = lastError as NSError
+                gatewayConnectionLogger.info("All local recovery attempts failed, checking for tailnet fallback: errorDomain=\(nsError.domain)")
+                
                 if nsError.domain == URLError.errorDomain,
                    let fallback = await GatewayEndpointStore.shared.maybeFallbackToTailnet(from: cfg.url)
                 {
+                    gatewayConnectionLogger.info("Tailnet fallback available: url=\(fallback.url)")
                     await self.configure(url: fallback.url, token: fallback.token, password: fallback.password)
-                    for delayMs in [150, 400, 900] {
+                    
+                    for (index, delayMs) in [150, 400, 900].enumerated() {
+                        gatewayConnectionLogger.info("Tailnet fallback attempt \(index + 1)/3, delay=\(delayMs)ms")
                         try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
                         do {
                             guard let client = self.client else {
+                                gatewayConnectionLogger.error("Tailnet fallback failed: gateway not configured")
                                 throw NSError(
                                     domain: "Gateway",
                                     code: 0,
                                     userInfo: [NSLocalizedDescriptionKey: "gateway not configured"])
                             }
-                            return try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+                            gatewayConnectionLogger.info("Tailnet fallback retry attempt \(index + 1)")
+                            let result = try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+                            gatewayConnectionLogger.info("Tailnet fallback retry succeeded")
+                            return result
                         } catch {
                             lastError = error
+                            gatewayConnectionLogger.warning("Tailnet fallback retry \(index + 1) failed: \(error.localizedDescription)")
                         }
                     }
                 }
 
+                gatewayConnectionLogger.error("All gateway recovery attempts exhausted, throwing final error: \(lastError.localizedDescription)")
                 throw lastError
             case .remote:
+                gatewayConnectionLogger.info("Remote mode recovery: attempting tunnel reconnection")
                 let nsError = error as NSError
-                guard nsError.domain == URLError.errorDomain else { throw error }
+                guard nsError.domain == URLError.errorDomain else {
+                    gatewayConnectionLogger.error("Remote mode error not URL-related, throwing: \(error.localizedDescription)")
+                    throw error
+                }
 
                 var lastError: Error = error
+                gatewayConnectionLogger.info("Stopping all remote tunnels")
                 await RemoteTunnelManager.shared.stopAll()
+                
                 do {
+                    gatewayConnectionLogger.info("Ensuring remote control tunnel")
                     _ = try await GatewayEndpointStore.shared.ensureRemoteControlTunnel()
                 } catch {
                     lastError = error
+                    gatewayConnectionLogger.warning("Remote tunnel ensure failed: \(error.localizedDescription)")
                 }
 
-                for delayMs in [150, 400, 900] {
+                for (index, delayMs) in [150, 400, 900].enumerated() {
+                    gatewayConnectionLogger.info("Remote tunnel recovery attempt \(index + 1)/3, delay=\(delayMs)ms")
                     try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
                     do {
+                        gatewayConnectionLogger.info("Remote tunnel retry attempt \(index + 1)")
                         let cfg = try await self.configProvider()
                         await self.configure(url: cfg.url, token: cfg.token, password: cfg.password)
                         guard let client = self.client else {
+                            gatewayConnectionLogger.error("Remote tunnel retry failed: gateway not configured")
                             throw NSError(
                                 domain: "Gateway",
                                 code: 0,
                                 userInfo: [NSLocalizedDescriptionKey: "gateway not configured"])
                         }
-                        return try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+                        let result = try await client.request(method: method, params: params, timeoutMs: timeoutMs)
+                        gatewayConnectionLogger.info("Remote tunnel retry succeeded")
+                        return result
                     } catch {
                         lastError = error
+                        gatewayConnectionLogger.warning("Remote tunnel retry \(index + 1) failed: \(error.localizedDescription)")
                     }
                 }
 
+                gatewayConnectionLogger.error("All remote tunnel recovery attempts exhausted, throwing final error: \(lastError.localizedDescription)")
                 throw lastError
             case .unconfigured:
+                gatewayConnectionLogger.error("Unconfigured mode, cannot recover: \(error.localizedDescription)")
                 throw error
             }
         }
@@ -351,15 +397,22 @@ actor GatewayConnection {
     }
 
     private func configure(url: URL, token: String?, password: String?) async {
+        gatewayConnectionLogger.info("Configuring gateway connection: url=\(url), hasToken=\(token != nil), hasPassword=\(password != nil)")
+        
         if self.client != nil, self.configuredURL == url, self.configuredToken == token,
            self.configuredPassword == password
         {
+            gatewayConnectionLogger.info("Gateway connection configuration unchanged, skipping reconfiguration")
             return
         }
+        
         if let client {
+            gatewayConnectionLogger.info("Shutting down existing gateway client connection")
             await client.shutdown()
         }
+        
         self.lastSnapshot = nil
+        gatewayConnectionLogger.info("Creating new GatewayChannelActor for connection")
         self.client = GatewayChannelActor(
             url: url,
             token: token,
@@ -371,6 +424,7 @@ actor GatewayConnection {
         self.configuredURL = url
         self.configuredToken = token
         self.configuredPassword = password
+        gatewayConnectionLogger.info("Gateway connection configuration completed successfully")
     }
 
     private func handle(push: GatewayPush) {

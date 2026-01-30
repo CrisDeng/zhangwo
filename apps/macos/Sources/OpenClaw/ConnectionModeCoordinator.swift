@@ -28,21 +28,27 @@ final class ConnectionModeCoordinator {
             Task.detached { await PortGuardian.shared.sweep(mode: .unconfigured) }
 
         case .local:
+            self.logger.info("Configuring local connection mode: paused=\(paused)")
             _ = await NodeServiceManager.stop()
             NodesStore.shared.lastError = nil
             await RemoteTunnelManager.shared.stopAll()
             WebChatManager.shared.resetTunnels()
             let shouldStart = GatewayAutostartPolicy.shouldStartGateway(mode: .local, paused: paused)
+            self.logger.info("Local mode gateway startup decision: shouldStart=\(shouldStart)")
             if shouldStart {
+                self.logger.info("Starting gateway process manager")
                 GatewayProcessManager.shared.setActive(true)
                 if GatewayAutostartPolicy.shouldEnsureLaunchAgent(
                     mode: .local,
                     paused: paused)
                 {
+                    self.logger.info("Ensuring LaunchAgent is enabled")
                     Task { await GatewayProcessManager.shared.ensureLaunchAgentEnabledIfNeeded() }
                 }
+                self.logger.info("Waiting for gateway to be ready")
                 _ = await GatewayProcessManager.shared.waitForGatewayReady()
             } else {
+                self.logger.info("Stopping gateway process manager (autostart disabled)")
                 GatewayProcessManager.shared.stop()
             }
             do {
