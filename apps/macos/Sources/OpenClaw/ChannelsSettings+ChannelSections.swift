@@ -88,6 +88,129 @@ extension ChannelsSettings {
         }
     }
 
+    var qqSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            self.formSection("About QQ Channel") {
+                Text("QQ Channel 是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQ 频道与 AI 助手进行交互。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("您需要在 QQ 开放平台创建应用并获取 App ID 和 App Secret。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            self.formSection("Connection") {
+                HStack(spacing: 12) {
+                    Button {
+                        Task { await self.store.testQQConnection() }
+                    } label: {
+                        if self.store.qqTestingConnection {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Test Connection")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(self.store.qqTestingConnection)
+
+                    if let result = self.store.qqConnectionTestResult {
+                        if result.success {
+                            Label("Connected", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                        } else {
+                            Label(result.message ?? "Connection failed", systemImage: "xmark.circle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
+
+            self.qqConfigSection
+        }
+    }
+
+    private var qqConfigSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            self.formSection("Configuration") {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("App ID")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("Enter App ID", text: self.qqAppIdBinding)
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("App Secret")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("Enter App Secret", text: self.qqAppSecretBinding)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+            }
+
+            self.configStatusMessage
+
+            HStack(spacing: 12) {
+                Button {
+                    Task { await self.store.saveConfigDraft() }
+                } label: {
+                    if self.store.isSavingConfig {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Text("Save")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(self.store.isSavingConfig || !self.store.configDirty)
+
+                Button("Reload") {
+                    Task { await self.store.reloadConfigDraft() }
+                }
+                .buttonStyle(.bordered)
+                .disabled(self.store.isSavingConfig)
+
+                Spacer()
+            }
+            .font(.caption)
+        }
+    }
+
+    private var qqAppIdBinding: Binding<String> {
+        Binding(
+            get: {
+                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appId")]
+                return self.store.configValue(at: path) as? String ?? ""
+            },
+            set: { newValue in
+                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appId")]
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                self.store.updateConfigValue(path: path, value: trimmed.isEmpty ? nil : trimmed)
+            }
+        )
+    }
+
+    private var qqAppSecretBinding: Binding<String> {
+        Binding(
+            get: {
+                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appSecret")]
+                return self.store.configValue(at: path) as? String ?? ""
+            },
+            set: { newValue in
+                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appSecret")]
+                let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                self.store.updateConfigValue(path: path, value: trimmed.isEmpty ? nil : trimmed)
+            }
+        )
+    }
+
     @ViewBuilder
     func genericChannelSection(_ channel: ChannelItem) -> some View {
         VStack(alignment: .leading, spacing: 16) {

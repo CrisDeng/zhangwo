@@ -70,6 +70,17 @@ extension ChannelsSettings {
         return .orange
     }
 
+    var qqTint: Color {
+        guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
+        else { return .secondary }
+        if !status.configured { return .secondary }
+        if status.lastError != nil { return .orange }
+        if status.probe?.ok == false { return .orange }
+        if status.connected { return .green }
+        if status.running { return .orange }
+        return .orange
+    }
+
     var whatsAppSummary: String {
         guard let status = self.channelStatus("whatsapp", as: ChannelsStatusSnapshot.WhatsAppStatus.self)
         else { return "Checking…" }
@@ -115,6 +126,15 @@ extension ChannelsSettings {
         guard let status = self.channelStatus("imessage", as: ChannelsStatusSnapshot.IMessageStatus.self)
         else { return "Checking…" }
         if !status.configured { return "Not configured" }
+        if status.running { return "Running" }
+        return "Configured"
+    }
+
+    var qqSummary: String {
+        guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
+        else { return "Checking…" }
+        if !status.configured { return "Not configured" }
+        if status.connected { return "Connected" }
         if status.running { return "Running" }
         return "Configured"
     }
@@ -292,8 +312,34 @@ extension ChannelsSettings {
         return lines.isEmpty ? nil : lines.joined(separator: " · ")
     }
 
+    var qqDetails: String? {
+        guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
+        else { return nil }
+        var lines: [String] = []
+        if let appId = status.appId, !appId.isEmpty {
+            lines.append("App ID: \(appId)")
+        }
+        if let probe = status.probe {
+            if probe.ok {
+                if let elapsed = probe.elapsedMs {
+                    lines.append("Probe \(Int(elapsed))ms")
+                }
+            } else {
+                let code = probe.status.map { String($0) } ?? "unknown"
+                lines.append("Probe failed (\(code))")
+            }
+        }
+        if let last = self.date(fromMs: status.lastProbeAt) {
+            lines.append("Last probe \(relativeAge(from: last))")
+        }
+        if let err = status.lastError, !err.isEmpty {
+            lines.append("Error: \(err)")
+        }
+        return lines.isEmpty ? nil : lines.joined(separator: " · ")
+    }
+
     var orderedChannels: [ChannelItem] {
-        let fallback = ["whatsapp", "telegram", "discord", "googlechat", "slack", "signal", "imessage"]
+        let fallback = ["whatsapp", "telegram", "discord", "googlechat", "slack", "signal", "imessage", "qq"]
         let order = self.store.snapshot?.channelOrder ?? fallback
         let channels = order.enumerated().map { index, id in
             ChannelItem(
@@ -343,6 +389,8 @@ extension ChannelsSettings {
     func channelSection(_ channel: ChannelItem) -> some View {
         if channel.id == "whatsapp" {
             self.whatsAppSection
+        } else if channel.id == "qq" {
+            self.qqSection
         } else {
             self.genericChannelSection(channel)
         }
@@ -362,6 +410,8 @@ extension ChannelsSettings {
             return self.signalTint
         case "imessage":
             return self.imessageTint
+        case "qq":
+            return self.qqTint
         default:
             if self.channelHasError(channel) { return .orange }
             if self.channelEnabled(channel) { return .green }
@@ -383,6 +433,8 @@ extension ChannelsSettings {
             return self.signalSummary
         case "imessage":
             return self.imessageSummary
+        case "qq":
+            return self.qqSummary
         default:
             if self.channelHasError(channel) { return "Error" }
             if self.channelEnabled(channel) { return "Active" }
@@ -404,6 +456,8 @@ extension ChannelsSettings {
             return self.signalDetails
         case "imessage":
             return self.imessageDetails
+        case "qq":
+            return self.qqDetails
         default:
             let status = self.channelStatusDictionary(channel.id)
             if let err = status?["lastError"]?.stringValue, !err.isEmpty {
@@ -443,6 +497,9 @@ extension ChannelsSettings {
             return self
                 .date(fromMs: self.channelStatus("imessage", as: ChannelsStatusSnapshot.IMessageStatus.self)?
                     .lastProbeAt)
+        case "qq":
+            return self
+                .date(fromMs: self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)?.lastProbeAt)
         default:
             let status = self.channelStatusDictionary(channel.id)
             if let probeAt = status?["lastProbeAt"]?.doubleValue {
@@ -480,6 +537,10 @@ extension ChannelsSettings {
             return status.lastError?.isEmpty == false || status.probe?.ok == false
         case "imessage":
             guard let status = self.channelStatus("imessage", as: ChannelsStatusSnapshot.IMessageStatus.self)
+            else { return false }
+            return status.lastError?.isEmpty == false || status.probe?.ok == false
+        case "qq":
+            guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
             else { return false }
             return status.lastError?.isEmpty == false || status.probe?.ok == false
         default:

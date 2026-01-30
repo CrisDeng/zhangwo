@@ -143,6 +143,25 @@ struct ChannelsStatusSnapshot: Codable {
         let lastProbeAt: Double?
     }
 
+    struct QQProbe: Codable {
+        let ok: Bool
+        let status: Int?
+        let error: String?
+        let elapsedMs: Double?
+    }
+
+    struct QQStatus: Codable {
+        let configured: Bool
+        let running: Bool
+        let connected: Bool
+        let appId: String?
+        let lastStartAt: Double?
+        let lastStopAt: Double?
+        let lastError: String?
+        let probe: QQProbe?
+        let lastProbeAt: Double?
+    }
+
     struct ChannelAccountSnapshot: Codable {
         let accountId: String
         let name: String?
@@ -235,6 +254,15 @@ final class ChannelsStore {
     var whatsappBusy = false
     var telegramBusy = false
 
+    // QQ Channel 相关状态
+    var qqTestingConnection = false
+    var qqConnectionTestResult: QQConnectionTestResult?
+
+    struct QQConnectionTestResult {
+        let success: Bool
+        let message: String?
+    }
+
     var configStatus: String?
     var isSavingConfig = false
     var configSchemaLoading = false
@@ -288,6 +316,41 @@ final class ChannelsStore {
             return meta.map(\.id)
         }
         return self.snapshot?.channelOrder ?? []
+    }
+
+    func testQQConnection() async {
+        guard !self.qqTestingConnection else { return }
+        self.qqTestingConnection = true
+        self.qqConnectionTestResult = nil
+        defer { self.qqTestingConnection = false }
+
+        do {
+            // 调用 gateway 的 channels.status 接口获取 QQ 连接状态
+            let result: ChannelsStatusSnapshot = try await GatewayConnection.shared.requestDecoded(
+                method: .channelsStatus,
+                params: [:])
+            if let qqStatus = result.decodeChannel("qq", as: ChannelsStatusSnapshot.QQStatus.self) {
+                if qqStatus.connected {
+                    self.qqConnectionTestResult = QQConnectionTestResult(success: true, message: nil)
+                } else if qqStatus.running {
+                    self.qqConnectionTestResult = QQConnectionTestResult(
+                        success: false, message: "Running but not connected")
+                } else if !qqStatus.configured {
+                    self.qqConnectionTestResult = QQConnectionTestResult(
+                        success: false, message: "Not configured")
+                } else if let err = qqStatus.lastError {
+                    self.qqConnectionTestResult = QQConnectionTestResult(success: false, message: err)
+                } else {
+                    self.qqConnectionTestResult = QQConnectionTestResult(
+                        success: false, message: "Not connected")
+                }
+            } else {
+                self.qqConnectionTestResult = QQConnectionTestResult(
+                    success: false, message: "QQ channel not available")
+            }
+        } catch {
+            self.qqConnectionTestResult = QQConnectionTestResult(success: false, message: error.localizedDescription)
+        }
     }
 
     init(isPreview: Bool = ProcessInfo.processInfo.isPreview) {

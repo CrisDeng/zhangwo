@@ -95,6 +95,10 @@ struct OnboardingView: View {
     @State var onboardingWizard = OnboardingWizardModel()
     @State var didLoadOnboardingSkills = false
     @State var localGatewayProbe: LocalGatewayProbe?
+    @State var qqAppId: String = ""
+    @State var qqAppSecret: String = ""
+    @State var qqConfigStatus: String?
+    @State var qqConfigSaving = false
     @Bindable var state: AppState
     var permissionMonitor: PermissionMonitor
 
@@ -106,6 +110,7 @@ struct OnboardingView: View {
     let connectionPageIndex = 1
     let anthropicAuthPageIndex = 2
     let wizardPageIndex = 3
+    let qqChannelPageIndex = 7
     let onboardingChatPageIndex = 8
 
     static let clipboardPoll: AnyPublisher<Date, Never> = {
@@ -126,11 +131,11 @@ struct OnboardingView: View {
         case .remote:
             // Remote setup doesn't need local gateway/CLI/workspace setup pages,
             // and WhatsApp/Telegram setup is optional.
-            showOnboardingChat ? [0, 1, 5, 8, 9] : [0, 1, 5, 9]
+            showOnboardingChat ? [0, 1, 5, 7, 8, 9] : [0, 1, 5, 7, 9]
         case .unconfigured:
-            showOnboardingChat ? [0, 1, 8, 9] : [0, 1, 9]
+            showOnboardingChat ? [0, 1, 7, 8, 9] : [0, 1, 7, 9]
         case .local:
-            showOnboardingChat ? [0, 1, 3, 5, 8, 9] : [0, 1, 3, 5, 9]
+            showOnboardingChat ? [0, 1, 3, 5, 7, 8, 9] : [0, 1, 3, 5, 7, 9]
         }
     }
 

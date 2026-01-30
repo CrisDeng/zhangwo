@@ -2,6 +2,7 @@ import AppKit
 import OpenClawChatUI
 import OpenClawDiscovery
 import OpenClawIPC
+import OpenClawProtocol
 import SwiftUI
 
 extension OnboardingView {
@@ -20,6 +21,8 @@ extension OnboardingView {
             self.permissionsPage()
         case 6:
             self.cliPage()
+        case 7:
+            self.qqChannelPage()
         case 8:
             self.onboardingChatPage()
         case 9:
@@ -772,6 +775,110 @@ extension OnboardingView {
         guard !self.didLoadOnboardingSkills else { return }
         self.didLoadOnboardingSkills = true
         await self.onboardingSkillsModel.refresh()
+    }
+
+    func qqChannelPage() -> some View {
+        self.onboardingPage {
+            Text("Configure QQ Channel")
+                .font(.largeTitle.weight(.semibold))
+            Text("QQ Channel 是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQ 频道与 AI 助手进行交互。")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 520)
+                .fixedSize(horizontal: false, vertical: true)
+
+            self.onboardingCard(spacing: 14, padding: 16) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("QQ 开放平台配置")
+                        .font(.headline)
+
+                    Text("请在 QQ 开放平台创建应用，获取 App ID 和 App Secret，然后填写到下方。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("App ID")
+                                .font(.callout.weight(.semibold))
+                            TextField("请输入 App ID", text: self.$qqAppId)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 360)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("App Secret")
+                                .font(.callout.weight(.semibold))
+                            TextField("请输入 App Secret", text: self.$qqAppSecret)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(maxWidth: 360)
+                        }
+                    }
+
+                    HStack(spacing: 12) {
+                        Button {
+                            Task { await self.saveQQConfig() }
+                        } label: {
+                            if self.qqConfigSaving {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Text("Save Configuration")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(self.qqConfigSaving || self.qqAppId.isEmpty || self.qqAppSecret.isEmpty)
+
+                        Button("Skip") {
+                            self.handleNext()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    if let status = self.qqConfigStatus {
+                        Text(status)
+                            .font(.caption)
+                            .foregroundStyle(status.contains("Error") ? .red : .secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Divider()
+                        .padding(.vertical, 4)
+
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text("您也可以稍后在设置 → Channels → QQ 中配置此信息。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+
+    private func saveQQConfig() async {
+        self.qqConfigSaving = true
+        self.qqConfigStatus = nil
+        defer { self.qqConfigSaving = false }
+
+        do {
+            let config: [String: AnyCodable] = [
+                "channels": AnyCodable([
+                    "qq": [
+                        "appId": self.qqAppId,
+                        "appSecret": self.qqAppSecret
+                    ]
+                ])
+            ]
+            let _: AnyCodable = try await GatewayConnection.shared.requestDecoded(
+                method: .configSet,
+                params: ["config": AnyCodable(config)])
+            self.qqConfigStatus = "Configuration saved successfully!"
+        } catch {
+            self.qqConfigStatus = "Error: \(error.localizedDescription)"
+        }
     }
 
     private var skillsOverview: some View {
