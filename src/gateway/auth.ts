@@ -207,10 +207,19 @@ export async function authorizeGatewayConnect(params: {
   req?: IncomingMessage;
   trustedProxies?: string[];
   tailscaleWhois?: TailscaleWhoisLookup;
+  logger?: { info: (msg: string) => void; warn: (msg: string) => void };
 }): Promise<GatewayAuthResult> {
-  const { auth, connectAuth, req, trustedProxies } = params;
+  const { auth, connectAuth, req, trustedProxies, logger } = params;
   const tailscaleWhois = params.tailscaleWhois ?? readTailscaleWhoisIdentity;
   const localDirect = isLocalDirectRequest(req, trustedProxies);
+
+  // 诊断日志：记录认证参数
+  const configTokenPrefix = auth.token ? auth.token.slice(0, 8) : "none";
+  const connectTokenPrefix = connectAuth?.token ? connectAuth.token.slice(0, 8) : "none";
+  logger?.info?.(
+    `authorizeGatewayConnect: mode=${auth.mode}, localDirect=${localDirect}, allowTailscale=${auth.allowTailscale}, ` +
+      `configTokenPrefix=${configTokenPrefix}..., connectTokenPrefix=${connectTokenPrefix}...`,
+  );
 
   if (auth.allowTailscale && !localDirect) {
     const tailscaleCheck = await resolveVerifiedTailscaleUser({
@@ -218,40 +227,58 @@ export async function authorizeGatewayConnect(params: {
       tailscaleWhois,
     });
     if (tailscaleCheck.ok) {
+      logger?.info?.(
+        `authorizeGatewayConnect: tailscale auth succeeded, user=${tailscaleCheck.user.login}`,
+      );
       return {
         ok: true,
         method: "tailscale",
         user: tailscaleCheck.user.login,
       };
     }
+    logger?.info?.(
+      `authorizeGatewayConnect: tailscale auth failed, reason=${tailscaleCheck.reason}`,
+    );
   }
 
   if (auth.mode === "token") {
     if (!auth.token) {
+      logger?.warn?.("authorizeGatewayConnect: token mode but no config token");
       return { ok: false, reason: "token_missing_config" };
     }
     if (!connectAuth?.token) {
+      logger?.warn?.("authorizeGatewayConnect: token mode but no connect token provided");
       return { ok: false, reason: "token_missing" };
     }
     if (!safeEqual(connectAuth.token, auth.token)) {
+      logger?.warn?.(
+        `authorizeGatewayConnect: token mismatch, configTokenPrefix=${configTokenPrefix}..., ` +
+          `connectTokenPrefix=${connectTokenPrefix}..., lengths: config=${auth.token.length}, connect=${connectAuth.token.length}`,
+      );
       return { ok: false, reason: "token_mismatch" };
     }
+    logger?.info?.("authorizeGatewayConnect: token auth succeeded");
     return { ok: true, method: "token" };
   }
 
   if (auth.mode === "password") {
     const password = connectAuth?.password;
     if (!auth.password) {
+      logger?.warn?.("authorizeGatewayConnect: password mode but no config password");
       return { ok: false, reason: "password_missing_config" };
     }
     if (!password) {
+      logger?.warn?.("authorizeGatewayConnect: password mode but no connect password provided");
       return { ok: false, reason: "password_missing" };
     }
     if (!safeEqual(password, auth.password)) {
+      logger?.warn?.("authorizeGatewayConnect: password mismatch");
       return { ok: false, reason: "password_mismatch" };
     }
+    logger?.info?.("authorizeGatewayConnect: password auth succeeded");
     return { ok: true, method: "password" };
   }
 
+  logger?.warn?.(`authorizeGatewayConnect: unauthorized, mode=${auth.mode}`);
   return { ok: false, reason: "unauthorized" };
 }

@@ -569,6 +569,10 @@ export function attachGatewayWsMessageHandler(params: {
           connectAuth: connectParams.auth,
           req: upgradeReq,
           trustedProxies,
+          logger: {
+            info: (msg: string) => logGateway.info(msg),
+            warn: (msg: string) => logGateway.warn(msg),
+          },
         });
         let authOk = authResult.ok;
         let authMethod =
