@@ -534,6 +534,7 @@ struct ModelsQuickSetupView: View {
     @State private var selectedTemplate: ProviderTemplate?
     @State private var configuredProviders: [ProviderConfigState] = []
     @State private var selectedModel: String = ""
+    @State private var isSavingModel = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -633,19 +634,142 @@ struct ModelsQuickSetupView: View {
 
     private var modelSelectionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("模型选择")
-                .font(.headline)
+            HStack {
+                Text("默认模型")
+                    .font(.headline)
+                Spacer()
+                if self.isSavingModel {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.8)
+                }
+            }
 
-            Text("设置默认使用的模型")
+            Text("设置默认使用的模型，选择后将自动保存")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            SimpleModelSelector(store: self.store, selectedModel: self.$selectedModel, providerId: nil)
+            // 模型选择器
+            Picker("选择模型", selection: self.$selectedModel) {
+                Text("选择模型...").tag("")
+                ForEach(self.availableModels) { model in
+                    HStack {
+                        Image(systemName: model.providerIcon)
+                            .foregroundStyle(.secondary)
+                        Text(model.displayName)
+                    }
+                    .tag(model.fullRef)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: self.selectedModel) { _, newValue in
+                Task { await self.saveSelectedModel(newValue) }
+            }
+
+            // 当前模型信息
+            if let currentModel = self.currentModelInfo {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        Image(systemName: currentModel.providerIcon)
+                            .font(.title2)
+                            .foregroundStyle(Color.accentColor)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(currentModel.displayName)
+                                .font(.callout.weight(.medium))
+                            if let desc = currentModel.description {
+                                Text(desc)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 16) {
+                        if currentModel.reasoning {
+                            Label("推理", systemImage: "brain")
+                                .font(.caption)
+                                .foregroundStyle(.purple)
+                        }
+                        Label("\(currentModel.contextWindow / 1000)K 上下文", systemImage: "text.alignleft")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Label("\(currentModel.maxTokens / 1000)K 输出", systemImage: "arrow.right.square")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.1)))
+            }
         }
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+    }
+
+    // MARK: - Model Selection Helpers
+
+    /// 模型信息结构
+    private struct QuickSetupModelInfo: Identifiable {
+        let id: String
+        let fullRef: String
+        let displayName: String
+        let providerId: String
+        let providerIcon: String
+        let description: String?
+        let reasoning: Bool
+        let contextWindow: Int
+        let maxTokens: Int
+
+        init(provider: ProviderTemplate, model: ProviderModel) {
+            self.id = "\(provider.id)/\(model.id)"
+            self.fullRef = "\(provider.id)/\(model.id)"
+            self.displayName = "\(provider.name) - \(model.name)"
+            self.providerId = provider.id
+            self.providerIcon = provider.icon
+            self.description = model.description
+            self.reasoning = model.reasoning
+            self.contextWindow = model.contextWindow
+            self.maxTokens = model.maxTokens
+        }
+    }
+
+    /// 所有可用的模型（来自已配置的提供商）
+    private var availableModels: [QuickSetupModelInfo] {
+        var models: [QuickSetupModelInfo] = []
+
+        for template in ProviderTemplates.all {
+            // 检查提供商是否已配置
+            if self.store.providerStatus(for: template.id).isConfigured || template.isLocal {
+                for model in template.models {
+                    models.append(QuickSetupModelInfo(provider: template, model: model))
+                }
+            }
+        }
+
+        return models
+    }
+
+    /// 当前选中模型的信息
+    private var currentModelInfo: QuickSetupModelInfo? {
+        self.availableModels.first { $0.fullRef == self.selectedModel }
+    }
+
+    /// 保存选中的模型
+    private func saveSelectedModel(_ model: String) async {
+        guard !model.isEmpty else { return }
+        self.isSavingModel = true
+        defer { self.isSavingModel = false }
+
+        self.store.updateConfigValue(
+            path: [.key("agents"), .key("defaults"), .key("model"), .key("primary")],
+            value: model)
+
+        await self.store.saveConfigDraft()
     }
 
     // MARK: - 连接测试
