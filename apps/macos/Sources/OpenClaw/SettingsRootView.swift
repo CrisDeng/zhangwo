@@ -24,52 +24,52 @@ struct SettingsRootView: View {
             }
             TabView(selection: self.$selectedTab) {
                 GeneralSettings(state: self.state)
-                    .tabItem { Label("General", systemImage: "gearshape") }
+                    .tabItem { Label("通用", systemImage: "gearshape") }
                     .tag(SettingsTab.general)
 
                 ChannelsSettings()
-                    .tabItem { Label("Channels", systemImage: "link") }
+                    .tabItem { Label("频道", systemImage: "link") }
                     .tag(SettingsTab.channels)
 
                 VoiceWakeSettings(state: self.state, isActive: self.selectedTab == .voiceWake)
-                    .tabItem { Label("Voice Wake", systemImage: "waveform.circle") }
+                    .tabItem { Label("语音唤醒", systemImage: "waveform.circle") }
                     .tag(SettingsTab.voiceWake)
 
                 ConfigSettings()
-                    .tabItem { Label("Config", systemImage: "slider.horizontal.3") }
+                    .tabItem { Label("配置", systemImage: "slider.horizontal.3") }
                     .tag(SettingsTab.config)
 
                 InstancesSettings()
-                    .tabItem { Label("Instances", systemImage: "network") }
+                    .tabItem { Label("实例", systemImage: "network") }
                     .tag(SettingsTab.instances)
 
                 SessionsSettings()
-                    .tabItem { Label("Sessions", systemImage: "clock.arrow.circlepath") }
+                    .tabItem { Label("会话", systemImage: "clock.arrow.circlepath") }
                     .tag(SettingsTab.sessions)
 
                 CronSettings()
-                    .tabItem { Label("Cron", systemImage: "calendar") }
+                    .tabItem { Label("定时任务", systemImage: "calendar") }
                     .tag(SettingsTab.cron)
 
                 SkillsSettings(state: self.state)
-                    .tabItem { Label("Skills", systemImage: "sparkles") }
+                    .tabItem { Label("技能", systemImage: "sparkles") }
                     .tag(SettingsTab.skills)
 
                 PermissionsSettings(
                     status: self.permissionMonitor.status,
                     refresh: self.refreshPerms,
                     showOnboarding: { DebugActions.restartOnboarding() })
-                    .tabItem { Label("Permissions", systemImage: "lock.shield") }
+                    .tabItem { Label("权限", systemImage: "lock.shield") }
                     .tag(SettingsTab.permissions)
 
                 if self.state.debugPaneEnabled {
                     DebugSettings(state: self.state)
-                        .tabItem { Label("Debug", systemImage: "ant") }
+                        .tabItem { Label("调试", systemImage: "ant") }
                         .tag(SettingsTab.debug)
                 }
 
                 AboutSettings(updater: self.updater)
-                    .tabItem { Label("About", systemImage: "info.circle") }
+                    .tabItem { Label("关于", systemImage: "info.circle") }
                     .tag(SettingsTab.about)
             }
         }
@@ -118,14 +118,14 @@ struct SettingsRootView: View {
             HStack(spacing: 8) {
                 Image(systemName: "gearshape.2.fill")
                     .foregroundStyle(.secondary)
-                Text("Managed by Nix")
+                Text("由 Nix 管理")
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Config: \(configPath)")
-                Text("State:  \(stateDir)")
+                Text("配置: \(configPath)")
+                Text("状态: \(stateDir)")
             }
             .font(.caption.monospaced())
             .foregroundStyle(.secondary)
@@ -181,17 +181,17 @@ enum SettingsTab: CaseIterable {
     static let windowHeight: CGFloat = 790 // +10% (more room)
     var title: String {
         switch self {
-        case .general: "General"
-        case .channels: "Channels"
-        case .skills: "Skills"
-        case .sessions: "Sessions"
-        case .cron: "Cron"
-        case .config: "Config"
-        case .instances: "Instances"
-        case .voiceWake: "Voice Wake"
-        case .permissions: "Permissions"
-        case .debug: "Debug"
-        case .about: "About"
+        case .general: "通用"
+        case .channels: "频道"
+        case .skills: "技能"
+        case .sessions: "会话"
+        case .cron: "定时任务"
+        case .config: "配置"
+        case .instances: "实例"
+        case .voiceWake: "语音唤醒"
+        case .permissions: "权限"
+        case .debug: "调试"
+        case .about: "关于"
         }
     }
 

@@ -864,38 +864,25 @@ extension OnboardingView {
         defer { self.qqConfigSaving = false }
 
         do {
-            // First, load current config to get baseHash
-            let snapshot: ConfigSnapshot = try await GatewayConnection.shared.requestDecoded(
-                method: .configGet,
-                params: nil,
-                timeoutMs: 8000)
+            // 1. 加载当前配置
+            var root = await ConfigStore.load()
 
-            // Build patch config as JSON string
-            let patchConfig: [String: Any] = [
-                "channels": [
-                    "qqbot": [
-                        "enabled": true,
-                        "appId": self.qqAppId,
-                        "clientSecret": self.qqAppSecret
-                    ]
-                ]
+            // 2. 获取或创建 channels 字典
+            var channels = root["channels"] as? [String: Any] ?? [:]
+
+            // 3. 设置 qqbot 配置
+            channels["qqbot"] = [
+                "appId": self.qqAppId,
+                "clientSecret": self.qqAppSecret,
+                "enabled": true
             ]
-            let patchData = try JSONSerialization.data(withJSONObject: patchConfig, options: [.sortedKeys])
-            guard let rawPatch = String(data: patchData, encoding: .utf8) else {
-                self.qqConfigStatus = "Error: Failed to encode config"
-                return
-            }
 
-            // Use config.patch to merge with existing config
-            var params: [String: AnyCodable] = ["raw": AnyCodable(rawPatch)]
-            if let baseHash = snapshot.hash {
-                params["baseHash"] = AnyCodable(baseHash)
-            }
+            // 4. 更新 root 配置
+            root["channels"] = channels
 
-            let _: AnyCodable = try await GatewayConnection.shared.requestDecoded(
-                method: .configPatch,
-                params: params,
-                timeoutMs: 10000)
+            // 5. 保存配置
+            try await ConfigStore.save(root)
+
             self.qqConfigStatus = "Configuration saved successfully!"
         } catch {
             self.qqConfigStatus = "Error: \(error.localizedDescription)"

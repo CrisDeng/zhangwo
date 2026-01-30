@@ -1,5 +1,8 @@
 import OpenClawProtocol
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.anthropic.openclaw", category: "channels-store")
 
 extension ChannelsStore {
     func start() {
@@ -27,6 +30,7 @@ extension ChannelsStore {
         self.isRefreshing = true
         defer { self.isRefreshing = false }
 
+        logger.info("ChannelsStore.refresh(probe: \(probe)) starting...")
         do {
             let params: [String: AnyCodable] = [
                 "probe": AnyCodable(probe),
@@ -39,8 +43,10 @@ extension ChannelsStore {
             self.snapshot = snap
             self.lastSuccess = Date()
             self.lastError = nil
+            logger.info("ChannelsStore.refresh succeeded, channels count: \(snap.channels.count)")
         } catch {
             self.lastError = error.localizedDescription
+            logger.error("ChannelsStore.refresh failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 

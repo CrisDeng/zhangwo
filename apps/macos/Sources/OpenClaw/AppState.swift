@@ -1,8 +1,11 @@
 import AppKit
 import Foundation
 import Observation
+import os
 import ServiceManagement
 import SwiftUI
+
+private let logger = Logger(subsystem: "com.anthropic.openclaw", category: "app-state")
 
 @MainActor
 @Observable
@@ -166,8 +169,16 @@ final class AppState {
 
     var connectionMode: ConnectionMode {
         didSet {
+            logger.info("AppState.connectionMode didSet: \(self.connectionMode.rawValue, privacy: .public), isInitializing=\(self.isInitializing)")
             self.ifNotPreview { UserDefaults.standard.set(self.connectionMode.rawValue, forKey: connectionModeKey) }
             self.syncGatewayConfigIfNeeded()
+            // 同步更新 GatewayEndpointStore 的状态，确保 connectionMode 改变后立即生效
+            // 注意：必须在非初始化期间才执行，避免竞态条件
+            guard !self.isInitializing else { return }
+            self.ifNotPreview {
+                logger.info("AppState: triggering GatewayEndpointStore.setMode(\(self.connectionMode.rawValue, privacy: .public))")
+                Task { await GatewayEndpointStore.shared.setMode(self.connectionMode) }
+            }
         }
     }
 

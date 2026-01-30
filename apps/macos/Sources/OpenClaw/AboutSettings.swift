@@ -31,14 +31,14 @@ struct AboutSettings: View {
             VStack(spacing: 3) {
                 Text("OpenClaw")
                     .font(.title3.bold())
-                Text("Version \(self.versionString)")
+                Text("版本 \(self.versionString)")
                     .foregroundStyle(.secondary)
                 if let buildTimestamp {
-                    Text("Built \(buildTimestamp)\(self.buildSuffix)")
+                    Text("构建于 \(buildTimestamp)\(self.buildSuffix)")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                Text("Menu bar companion for notifications, screenshots, and privileged agent actions.")
+                Text("菜单栏助手，用于通知、截图和特权代理操作。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -50,9 +50,9 @@ struct AboutSettings: View {
                     icon: "chevron.left.slash.chevron.right",
                     title: "GitHub",
                     url: "https://github.com/openclaw/openclaw")
-                AboutLinkRow(icon: "globe", title: "Website", url: "https://openclaw.ai")
+                AboutLinkRow(icon: "globe", title: "官网", url: "https://openclaw.ai")
                 AboutLinkRow(icon: "bird", title: "Twitter", url: "https://twitter.com/steipete")
-                AboutLinkRow(icon: "envelope", title: "Email", url: "mailto:peter@steipete.me")
+                AboutLinkRow(icon: "envelope", title: "邮箱", url: "mailto:peter@steipete.me")
             }
             .frame(maxWidth: .infinity)
             .multilineTextAlignment(.center)
@@ -64,14 +64,14 @@ struct AboutSettings: View {
 
                 if updater.isAvailable {
                     VStack(spacing: 10) {
-                        Toggle("Check for updates automatically", isOn: self.$autoCheckEnabled)
+                        Toggle("自动检查更新", isOn: self.$autoCheckEnabled)
                             .toggleStyle(.checkbox)
                             .frame(maxWidth: .infinity, alignment: .center)
 
-                        Button("Check for Updates…") { updater.checkForUpdates(nil) }
+                        Button("检查更新…") { updater.checkForUpdates(nil) }
                     }
                 } else {
-                    Text("Updates unavailable in this build.")
+                    Text("此版本不支持更新。")
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
                 }

@@ -271,6 +271,25 @@ final class ChannelsStore {
     var configDraft: [String: Any] = [:]
     var configDirty = false
 
+    // MARK: - 提供商配置相关状态
+
+    /// 配置保存结果反馈
+    enum ConfigSaveResult {
+        case success
+        case error(String)
+    }
+    var configSaveResult: ConfigSaveResult?
+    var showConfigSaveToast = false
+
+    /// 提供商配置状态缓存
+    var providerConfigStatuses: [String: ProviderConfigStatus] = [:]
+
+    /// 当前正在测试连接的提供商
+    var testingProviders: Set<String> = []
+
+    /// 连接测试结果
+    var providerTestResults: [String: Bool] = [:]
+
     let interval: TimeInterval = 45
     let isPreview: Bool
     var pollTask: Task<Void, Never>?
@@ -355,5 +374,176 @@ final class ChannelsStore {
 
     init(isPreview: Bool = ProcessInfo.processInfo.isPreview) {
         self.isPreview = isPreview
+    }
+
+    // MARK: - 提供商配置方法
+
+    /// 获取提供商的配置状态
+    func providerStatus(for providerId: String) -> ProviderConfigStatus {
+        if let cached = providerConfigStatuses[providerId] {
+            return cached
+        }
+        // 检查环境变量是否配置
+        guard let template = ProviderTemplates.template(for: providerId) else {
+            return .notConfigured
+        }
+        let envDict = configDraft["env"] as? [String: Any] ?? [:]
+        let hasKey = template.envKeys.contains { key in
+            if let value = envDict[key] as? String, !value.isEmpty {
+                return true
+            }
+            return false
+        }
+        let status: ProviderConfigStatus = hasKey ? .configured : .notConfigured
+        providerConfigStatuses[providerId] = status
+        return status
+    }
+
+    /// 更新提供商配置
+    func updateProviderConfig(_ config: ProviderConfig) {
+        guard let template = ProviderTemplates.template(for: config.providerId) else { return }
+
+        // 设置 models.mode 为 merge
+        updateConfigValue(path: [.key("models"), .key("mode")], value: "merge")
+
+        // 构建完整的 provider 配置
+        var providerConfig: [String: Any] = [:]
+
+        // 设置 baseUrl（优先使用自定义 URL，否则使用模板默认值）
+        if let customBaseUrl = config.customBaseUrl, !customBaseUrl.isEmpty {
+            providerConfig["baseUrl"] = customBaseUrl
+        } else if let defaultBaseUrl = template.baseUrl {
+            providerConfig["baseUrl"] = defaultBaseUrl
+        }
+
+        // 设置 apiKey
+        if let apiKey = config.apiKey, !apiKey.isEmpty {
+            providerConfig["apiKey"] = apiKey
+            // 同时更新环境变量（保持向后兼容）
+            if let envKey = template.envKeys.first {
+                updateConfigValue(path: [.key("env"), .key(envKey)], value: apiKey)
+            }
+        }
+
+        // 设置 api 类型（优先使用用户自定义，否则使用模板默认值）
+        if let customApiType = config.customApiType, !customApiType.isEmpty {
+            providerConfig["api"] = customApiType
+        } else {
+            providerConfig["api"] = template.apiType
+        }
+
+        // 获取用户配置的输入类型和成本
+        let inputTypes = config.inputTypes ?? ["text"]
+        let cost = config.modelCost ?? ModelCost()
+
+        // 构建 models 数组
+        var modelsArray: [[String: Any]] = []
+        for model in template.models {
+            var modelDict: [String: Any] = [
+                "id": model.id,
+                "name": model.name,
+                "reasoning": model.reasoning,
+                "contextWindow": model.contextWindow,
+                "maxTokens": model.maxTokens
+            ]
+            // 添加 input 类型（使用用户配置）
+            modelDict["input"] = inputTypes
+            // 添加 cost 信息（使用用户配置）
+            modelDict["cost"] = [
+                "input": cost.input,
+                "output": cost.output,
+                "cacheRead": cost.cacheRead,
+                "cacheWrite": cost.cacheWrite
+            ]
+            modelsArray.append(modelDict)
+        }
+        providerConfig["models"] = modelsArray
+
+        // 更新 provider 配置
+        updateConfigValue(
+            path: [.key("models"), .key("providers"), .key(config.providerId)],
+            value: providerConfig)
+
+        // 更新默认模型
+        if let model = config.fullModelRef {
+            updateConfigValue(
+                path: [.key("agents"), .key("defaults"), .key("model"), .key("primary")],
+                value: model)
+        }
+
+        // 清除缓存状态
+        providerConfigStatuses.removeValue(forKey: config.providerId)
+    }
+
+    /// 测试提供商连接
+    func testProviderConnection(providerId: String) async -> Bool {
+        guard !testingProviders.contains(providerId) else { return false }
+        testingProviders.insert(providerId)
+        defer { testingProviders.remove(providerId) }
+
+        // 简单的连接测试 - 通过 gateway 验证
+        do {
+            // 使用 models list 接口检查提供商状态
+            let params: [String: AnyCodable] = ["provider": AnyCodable(providerId)]
+            let _: AnyCodable = try await GatewayConnection.shared.requestDecoded(
+                method: .modelsList,
+                params: params,
+                timeoutMs: 10000)
+            providerTestResults[providerId] = true
+            providerConfigStatuses[providerId] = .verified
+            return true
+        } catch {
+            providerTestResults[providerId] = false
+            providerConfigStatuses[providerId] = .error(error.localizedDescription)
+            return false
+        }
+    }
+
+    /// 保存配置并显示反馈
+    func saveConfigWithFeedback() async {
+        guard !isSavingConfig else { return }
+        isSavingConfig = true
+        configSaveResult = nil
+        defer { isSavingConfig = false }
+
+        do {
+            try await ConfigStore.save(configDraft)
+            await loadConfig()
+            configSaveResult = .success
+            showConfigSaveToast = true
+
+            // 清除提供商状态缓存，重新加载
+            providerConfigStatuses.removeAll()
+
+            // 3 秒后自动隐藏 toast
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                self.showConfigSaveToast = false
+            }
+        } catch {
+            configSaveResult = .error(error.localizedDescription)
+            showConfigSaveToast = true
+            configStatus = error.localizedDescription
+        }
+    }
+
+    /// 获取当前配置的默认模型
+    func currentDefaultModel() -> String? {
+        let agents = configDraft["agents"] as? [String: Any]
+        let defaults = agents?["defaults"] as? [String: Any]
+        let model = defaults?["model"] as? [String: Any]
+        return model?["primary"] as? String
+    }
+
+    /// 获取已配置的提供商列表
+    func configuredProviders() -> [ProviderTemplate] {
+        return ProviderTemplates.all.filter { template in
+            providerStatus(for: template.id).isConfigured
+        }
+    }
+
+    /// 设置配置值（通过路径数组）- 便捷方法
+    func setConfigValue(at path: [ConfigPathSegment], value: Any?) {
+        updateConfigValue(path: path, value: value)
     }
 }
