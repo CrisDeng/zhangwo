@@ -246,15 +246,32 @@ else
   echo "   ⚠️  Templates directory not found: $TEMPLATES_SRC" >&2
 fi
 
+# Bundle skills (bundled AI agent skills)
+echo "📦 Bundling skills..."
+SKILLS_SRC="$ROOT_DIR/skills"
+SKILLS_DEST="$CLI_DIR/skills"
+if [[ -d "$SKILLS_SRC" ]]; then
+  mkdir -p "$SKILLS_DEST"
+  # Copy all skill directories
+  cp -R "$SKILLS_SRC"/* "$SKILLS_DEST/"
+  SKILL_COUNT=$(ls -1d "$SKILLS_DEST"/*/ 2>/dev/null | wc -l | tr -d ' ')
+  SKILLS_SIZE=$(du -sh "$SKILLS_DEST" 2>/dev/null | cut -f1 || echo "?")
+  echo "   ✅ Copied $SKILL_COUNT skills ($SKILLS_SIZE)"
+else
+  echo "   ⚠️  Skills directory not found: $SKILLS_SRC" >&2
+fi
+
 # Calculate sizes
 NODE_SIZE=$(du -sh "$NODE_DIR" | cut -f1)
 CLI_SIZE=$(du -sh "$CLI_DIR" | cut -f1)
 EXT_SIZE=$(du -sh "$EXTENSIONS_DIR" 2>/dev/null | cut -f1 || echo "0")
+SKILLS_TOTAL_SIZE=$(du -sh "$SKILLS_DEST" 2>/dev/null | cut -f1 || echo "0")
 TOTAL_SIZE=$(du -sh "$RUNTIME_DIR" | cut -f1)
 
 echo "✅ Runtime bundled:"
 echo "   Node.js:    $NODE_SIZE"
 echo "   CLI:        $CLI_SIZE"
 echo "   Extensions: $EXT_SIZE"
+echo "   Skills:     $SKILLS_TOTAL_SIZE"
 echo "   Total:      $TOTAL_SIZE"
 echo "   Path:       $RUNTIME_DIR"

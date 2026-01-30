@@ -493,13 +493,33 @@ final class SkillsSettingsModel {
         self.busySkills.contains(skill.skillKey)
     }
 
+    // Document processing skills that should appear first (in this order)
+    private static let prioritySkills = ["pdf", "docx", "xlsx", "pptx"]
+
     func refresh() async {
         guard !self.isLoading else { return }
         self.isLoading = true
         self.error = nil
         do {
             let report = try await GatewayConnection.shared.skillsStatus()
-            self.skills = report.skills.sorted { $0.name < $1.name }
+            self.skills = report.skills.sorted { skill1, skill2 in
+                let isPriority1 = Self.prioritySkills.contains(skill1.name)
+                let isPriority2 = Self.prioritySkills.contains(skill2.name)
+
+                // Both are priority skills: sort by defined order
+                if isPriority1 && isPriority2 {
+                    let idx1 = Self.prioritySkills.firstIndex(of: skill1.name) ?? Int.max
+                    let idx2 = Self.prioritySkills.firstIndex(of: skill2.name) ?? Int.max
+                    return idx1 < idx2
+                }
+
+                // Priority skills come first
+                if isPriority1 { return true }
+                if isPriority2 { return false }
+
+                // Others sorted alphabetically
+                return skill1.name < skill2.name
+            }
         } catch {
             self.error = error.localizedDescription
         }

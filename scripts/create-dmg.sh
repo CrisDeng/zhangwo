@@ -45,6 +45,7 @@ DMG_WINDOW_BOUNDS="${DMG_WINDOW_BOUNDS:-400 100 900 420}"
 DMG_ICON_SIZE="${DMG_ICON_SIZE:-128}"
 DMG_APP_POS="${DMG_APP_POS:-125 160}"
 DMG_APPS_POS="${DMG_APPS_POS:-375 160}"
+DMG_LICENSE_POS="${DMG_LICENSE_POS:-250 280}"
 DMG_EXTRA_SECTORS="${DMG_EXTRA_SECTORS:-2048}"
 
 to_applescript_list4() {
@@ -76,6 +77,12 @@ trap 'hdiutil detach "/Volumes/'"$DMG_VOLUME_NAME"'" -force 2>/dev/null || true;
 
 cp -R "$APP_PATH" "$DMG_TEMP/"
 ln -s /Applications "$DMG_TEMP/Applications"
+
+# Copy LICENSE file to DMG
+if [[ -f "$ROOT_DIR/LICENSE" ]]; then
+  cp "$ROOT_DIR/LICENSE" "$DMG_TEMP/LICENSE.txt"
+  echo "📄 Added LICENSE.txt to DMG"
+fi
 
 # Calculate required size with sufficient headroom.
 # App bundles contain many small files; APFS overhead can be significant.
@@ -145,6 +152,9 @@ tell application "Finder"
     set shows icon preview of viewOptions to true
     set position of item "${APP_NAME}.app" of container window to {$(to_applescript_pair "$DMG_APP_POS")}
     set position of item "Applications" of container window to {$(to_applescript_pair "$DMG_APPS_POS")}
+    if exists file "LICENSE.txt" then
+      set position of item "LICENSE.txt" of container window to {$(to_applescript_pair "$DMG_LICENSE_POS")}
+    end if
     update without registering applications
     delay 2
     close
