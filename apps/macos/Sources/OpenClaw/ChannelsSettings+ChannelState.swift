@@ -340,7 +340,11 @@ extension ChannelsSettings {
 
     var orderedChannels: [ChannelItem] {
         let fallback = ["whatsapp", "telegram", "discord", "googlechat", "slack", "signal", "imessage", "qqbot"]
-        let order = self.store.snapshot?.channelOrder ?? fallback
+        var order = self.store.snapshot?.channelOrder ?? fallback
+        // 确保 qqbot 一定存在作为保底选项
+        if !order.contains("qqbot") {
+            order.append("qqbot")
+        }
         let channels = order.enumerated().map { index, id in
             ChannelItem(
                 id: id,

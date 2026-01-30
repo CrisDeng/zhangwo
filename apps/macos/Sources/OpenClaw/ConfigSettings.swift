@@ -461,6 +461,9 @@ extension ConfigSettings {
         let node = self.resolvedSchemaNode(root)
         let hints = self.store.configUiHints
         let keys = node.properties.keys.sorted { lhs, rhs in
+            // models 始终排在第一位
+            if lhs == "models" { return true }
+            if rhs == "models" { return false }
             let orderA = hintForPath([.key(lhs)], hints: hints)?.order ?? 0
             let orderB = hintForPath([.key(rhs)], hints: hints)?.order ?? 0
             if orderA != orderB { return orderA < orderB }
