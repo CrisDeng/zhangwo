@@ -186,11 +186,11 @@ extension ChannelsSettings {
     private var qqAppIdBinding: Binding<String> {
         Binding(
             get: {
-                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appId")]
+                let path: ConfigPath = [.key("channels"), .key("qqbot"), .key("appId")]
                 return self.store.configValue(at: path) as? String ?? ""
             },
             set: { newValue in
-                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appId")]
+                let path: ConfigPath = [.key("channels"), .key("qqbot"), .key("appId")]
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.store.updateConfigValue(path: path, value: trimmed.isEmpty ? nil : trimmed)
             }
@@ -200,11 +200,11 @@ extension ChannelsSettings {
     private var qqAppSecretBinding: Binding<String> {
         Binding(
             get: {
-                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appSecret")]
+                let path: ConfigPath = [.key("channels"), .key("qqbot"), .key("clientSecret")]
                 return self.store.configValue(at: path) as? String ?? ""
             },
             set: { newValue in
-                let path: ConfigPath = [.key("channels"), .key("qq"), .key("appSecret")]
+                let path: ConfigPath = [.key("channels"), .key("qqbot"), .key("clientSecret")]
                 let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.store.updateConfigValue(path: path, value: trimmed.isEmpty ? nil : trimmed)
             }

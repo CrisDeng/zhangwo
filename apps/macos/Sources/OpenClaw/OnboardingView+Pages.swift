@@ -866,9 +866,10 @@ extension OnboardingView {
         do {
             let config: [String: AnyCodable] = [
                 "channels": AnyCodable([
-                    "qq": [
+                    "qqbot": [
                         "appId": self.qqAppId,
-                        "appSecret": self.qqAppSecret
+                        "clientSecret": self.qqAppSecret,
+                        "enabled": true
                     ]
                 ])
             ]
