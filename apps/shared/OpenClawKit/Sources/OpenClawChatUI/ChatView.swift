@@ -222,7 +222,7 @@ public struct OpenClawChatView: View {
     private var messageListOverlay: some View {
         if self.viewModel.isLoading {
             EmptyView()
-        } else if let error = self.activeErrorText {
+            } else if let error = self.activeErrorText {
             let presentation = self.errorPresentation(for: error)
             if self.hasVisibleMessageListContent {
                 VStack(spacing: 0) {
@@ -244,7 +244,7 @@ public struct OpenClawChatView: View {
                     title: presentation.title,
                     message: error,
                     tint: presentation.tint,
-                    actionTitle: "Refresh",
+                    actionTitle: "刷新",
                     action: { self.viewModel.refresh() })
                     .padding(.horizontal, 24)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -299,29 +299,29 @@ public struct OpenClawChatView: View {
 
     private var emptyStateTitle: String {
         #if os(macOS)
-        "Web Chat"
+        "网页聊天"
         #else
-        "Chat"
+        "聊天"
         #endif
     }
 
     private var emptyStateMessage: String {
         #if os(macOS)
-        "Type a message below to start.\nReturn sends • Shift-Return adds a line break."
+        "在下方输入消息开始聊天。\n回车发送 · Shift-回车换行。"
         #else
-        "Type a message below to start."
+        "在下方输入消息开始聊天。"
         #endif
     }
 
     private func errorPresentation(for error: String) -> (title: String, systemImage: String, tint: Color) {
         let lower = error.lowercased()
         if lower.contains("not connected") || lower.contains("socket") {
-            return ("Disconnected", "wifi.slash", .orange)
+            return ("已断开", "wifi.slash", .orange)
         }
         if lower.contains("timed out") {
-            return ("Timed out", "clock.badge.exclamationmark", .orange)
+            return ("超时", "clock.badge.exclamationmark", .orange)
         }
-        return ("Error", "exclamationmark.triangle.fill", .orange)
+        return ("错误", "exclamationmark.triangle.fill", .orange)
     }
 
     private func mergeToolResults(in messages: [OpenClawChatMessage]) -> [OpenClawChatMessage] {
@@ -486,14 +486,14 @@ private struct ChatNoticeBanner: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .help("Refresh")
+            .help("刷新")
 
             Button(action: self.dismiss) {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Dismiss")
+            .help("关闭")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

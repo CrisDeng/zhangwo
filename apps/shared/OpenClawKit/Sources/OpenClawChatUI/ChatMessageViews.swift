@@ -345,7 +345,7 @@ private struct AttachmentRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "paperclip")
-            Text(self.att.fileName ?? "Attachment")
+            Text(self.att.fileName ?? "附件")
                 .font(.footnote)
                 .lineLimit(1)
                 .foregroundStyle(self.isUser ? OpenClawChatTheme.userText : OpenClawChatTheme.assistantText)
@@ -418,7 +418,7 @@ private struct ToolResultCard: View {
                 .lineLimit(self.expanded ? nil : Self.previewLineLimit)
 
             if self.shouldShowToggle {
-                Button(self.expanded ? "Show less" : "Show full output") {
+                Button(self.expanded ? "收起" : "显示完整输出") {
                     self.expanded.toggle()
                 }
                 .buttonStyle(.plain)
@@ -459,7 +459,7 @@ struct ChatTypingIndicatorBubble: View {
         HStack(spacing: 10) {
             TypingDots()
             if self.style == .standard {
-                Text("OpenClaw is thinking…")
+                Text("OpenClaw 正在思考…")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -511,7 +511,7 @@ struct ChatPendingToolsBubble: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Running tools…", systemImage: "hammer")
+            Label("正在运行工具…", systemImage: "hammer")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
