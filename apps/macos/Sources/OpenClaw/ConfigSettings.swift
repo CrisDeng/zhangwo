@@ -6,6 +6,10 @@ struct ConfigSettings: View {
     private let isNixMode = ProcessInfo.processInfo.isNixMode
     @Bindable var store: ChannelsStore
     @State private var hasLoaded = false
+    @State private var activeSectionKey: String?
+    @State private var activeSubsection: SubsectionSelection?
+    // 用于 models 分区的 Tab 切换
+    @State private var modelsTabSelection: ModelsTabSelection = .quickSetup
 
     init(store: ChannelsStore = .shared) {
         self.store = store
@@ -13,9 +17,11 @@ struct ConfigSettings: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // 使用新的模型配置视图
-            ModelConfigSettingsView(store: store)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            HStack(spacing: 16) {
+                self.sidebar
+                self.detail
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             // 保存状态 Toast
             if self.store.showConfigSaveToast {
@@ -32,8 +38,25 @@ struct ConfigSettings: View {
             await self.store.loadConfigSchema()
             await self.store.loadConfig()
         }
+        .onAppear { self.ensureSelection() }
+        .onChange(of: self.store.configSchemaLoading) { _, loading in
+            if !loading { self.ensureSelection() }
+        }
     }
+}
 
+// MARK: - Models Tab Selection
+
+extension ConfigSettings {
+    enum ModelsTabSelection: String, CaseIterable {
+        case quickSetup = "快速设置"
+        case classic = "经典设置"
+    }
+}
+
+// MARK: - Toast View
+
+extension ConfigSettings {
     @ViewBuilder
     private var saveToastView: some View {
         let isSuccess = {
@@ -87,42 +110,9 @@ struct ConfigSettings: View {
     }
 }
 
-// MARK: - 高级配置设置视图（保留原有实现供参考）
+// MARK: - Sidebar & Detail
 
-@MainActor
-struct AdvancedConfigSettings: View {
-    private let isPreview = ProcessInfo.processInfo.isPreview
-    private let isNixMode = ProcessInfo.processInfo.isNixMode
-    @Bindable var store: ChannelsStore
-    @State private var hasLoaded = false
-    @State private var activeSectionKey: String?
-    @State private var activeSubsection: SubsectionSelection?
-
-    init(store: ChannelsStore = .shared) {
-        self.store = store
-    }
-
-    var body: some View {
-        HStack(spacing: 16) {
-            self.sidebar
-            self.detail
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .task {
-            guard !self.hasLoaded else { return }
-            guard !self.isPreview else { return }
-            self.hasLoaded = true
-            await self.store.loadConfigSchema()
-            await self.store.loadConfig()
-        }
-        .onAppear { self.ensureSelection() }
-        .onChange(of: self.store.configSchemaLoading) { _, loading in
-            if !loading { self.ensureSelection() }
-        }
-    }
-}
-
-extension AdvancedConfigSettings {
+extension ConfigSettings {
     private enum SubsectionSelection: Hashable {
         case all
         case key(String)
@@ -186,7 +176,12 @@ extension AdvancedConfigSettings {
             if self.store.configSchemaLoading {
                 ProgressView().controlSize(.small)
             } else if let section = self.activeSection {
-                self.sectionDetail(section)
+                // 判断是否为 models 分区
+                if section.key == "models" {
+                    self.modelsDetail(section)
+                } else {
+                    self.sectionDetail(section)
+                }
             } else if self.store.configSchema != nil {
                 self.emptyDetail
             } else {
@@ -208,6 +203,51 @@ extension AdvancedConfigSettings {
         .padding(.horizontal, 24)
         .padding(.vertical, 18)
     }
+
+    // MARK: - Models 分区详情（带 Tab 切换）
+
+    private func modelsDetail(_ section: ConfigSection) -> some View {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 16) {
+                self.header
+                if let status = self.store.configStatus {
+                    Text(status)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                }
+                self.actionRow
+                self.sectionHeader(section)
+
+                // Tab 切换
+                Picker("", selection: self.$modelsTabSelection) {
+                    ForEach(ModelsTabSelection.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 300)
+
+                // 根据 Tab 显示不同内容
+                switch self.modelsTabSelection {
+                case .quickSetup:
+                    // 快速设置：使用新的模板化界面
+                    ModelsQuickSetupView(store: self.store)
+                case .classic:
+                    // 经典设置：使用原来的 Schema 表单
+                    self.subsectionNav(section)
+                    self.sectionForm(section)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 18)
+            .groupBoxStyle(PlainSettingsGroupBoxStyle())
+        }
+    }
+
+    // MARK: - 其他分区详情（原有逻辑）
 
     private func sectionDetail(_ section: ConfigSection) -> some View {
         ScrollView(.vertical) {
@@ -482,6 +522,353 @@ extension AdvancedConfigSettings {
             .capitalized
     }
 }
+
+// MARK: - Models 快速设置视图
+
+@MainActor
+struct ModelsQuickSetupView: View {
+    @Bindable var store: ChannelsStore
+    @State private var selectedTemplate: ProviderTemplate?
+    @State private var configuredProviders: [ProviderConfigState] = []
+    @State private var showingProviderConfig = false
+    @State private var selectedModel: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // 已配置的提供商
+            if !self.configuredProviders.isEmpty {
+                self.configuredProvidersSection
+            }
+
+            // 添加新提供商
+            self.addProviderSection
+
+            // 模型选择
+            self.modelSelectionSection
+
+            // 连接测试
+            if !self.configuredProviders.isEmpty {
+                self.connectionTestSection
+            }
+        }
+        .onAppear {
+            self.loadConfiguredProviders()
+            self.selectedModel = self.store.currentDefaultModel() ?? ""
+        }
+        .onChange(of: self.store.configDirty) { _, _ in
+            self.loadConfiguredProviders()
+        }
+        .sheet(isPresented: self.$showingProviderConfig) {
+            if let template = self.selectedTemplate {
+                ProviderConfigSheet(
+                    store: self.store,
+                    template: template,
+                    onDismiss: {
+                        self.showingProviderConfig = false
+                        self.selectedTemplate = nil
+                    })
+            }
+        }
+    }
+
+    // MARK: - 已配置的提供商
+
+    private var configuredProvidersSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("已配置的提供商")
+                    .font(.headline)
+                Spacer()
+                Text("\(self.configuredProviders.count) 个")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 200, maximum: 300), spacing: 12)], spacing: 12) {
+                ForEach(self.configuredProviders, id: \.template.id) { config in
+                    ConfiguredProviderCard(
+                        config: config,
+                        onEdit: {
+                            self.selectedTemplate = config.template
+                            self.showingProviderConfig = true
+                        },
+                        onDelete: {
+                            self.deleteProvider(config.template)
+                        })
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+    }
+
+    // MARK: - 添加新提供商
+
+    private var addProviderSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("添加提供商")
+                .font(.headline)
+
+            Text("选择一个模型提供商模板来快速配置")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 12)], spacing: 12) {
+                ForEach(ProviderTemplates.all.filter { template in
+                    !self.configuredProviders.contains { $0.template.id == template.id }
+                }) { template in
+                    ProviderTemplateSmallCard(template: template) {
+                        self.selectedTemplate = template
+                        self.showingProviderConfig = true
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+    }
+
+    // MARK: - 模型选择
+
+    private var modelSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("模型选择")
+                .font(.headline)
+
+            Text("设置默认使用的模型")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            SimpleModelSelector(store: self.store, selectedModel: self.$selectedModel, providerId: nil)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+    }
+
+    // MARK: - 连接测试
+
+    private var connectionTestSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("连接测试")
+                .font(.headline)
+
+            BatchConnectionTestView(store: self.store)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.5)))
+    }
+
+    // MARK: - Helper Methods
+
+    private func loadConfiguredProviders() {
+        var providers: [ProviderConfigState] = []
+
+        for template in ProviderTemplates.all {
+            if self.isProviderConfigured(template) {
+                let status = self.store.providerStatus(for: template.id)
+                providers.append(ProviderConfigState(template: template, status: status))
+            }
+        }
+
+        self.configuredProviders = providers
+    }
+
+    private func isProviderConfigured(_ template: ProviderTemplate) -> Bool {
+        let draft = self.store.configDraft
+        guard !draft.isEmpty else { return false }
+
+        // 本地服务（如 Ollama）默认视为已配置
+        if template.isLocal {
+            return true
+        }
+
+        // 检查环境变量是否配置
+        let envDict = draft["env"] as? [String: Any] ?? [:]
+        for envKey in template.envKeys {
+            if let value = envDict[envKey] as? String, !value.isEmpty {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func getConfigValue(at path: String, in draft: [String: Any]) -> Any? {
+        let components = path.split(separator: ".").map(String.init)
+        var current: Any = draft
+
+        for component in components {
+            if let dict = current as? [String: Any] {
+                if let next = dict[component] {
+                    current = next
+                } else {
+                    return nil
+                }
+            } else {
+                return nil
+            }
+        }
+
+        return current
+    }
+
+    private func deleteProvider(_ template: ProviderTemplate) {
+        // 清空该提供商的环境变量配置
+        for envKey in template.envKeys {
+            self.store.setConfigValue(at: [.key("env"), .key(envKey)], value: nil)
+        }
+    }
+}
+
+// MARK: - 提供商配置状态
+
+struct ProviderConfigState {
+    let template: ProviderTemplate
+    let status: ProviderConfigStatus
+}
+
+// MARK: - 已配置提供商卡片
+
+struct ConfiguredProviderCard: View {
+    let config: ProviderConfigState
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(self.config.template.icon)
+                    .font(.title2)
+                Text(self.config.template.name)
+                    .font(.headline)
+                Spacer()
+                self.statusIndicator
+            }
+
+            Text(self.config.template.description)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+
+            HStack {
+                Button("编辑") {
+                    self.onEdit()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Spacer()
+
+                Button {
+                    self.onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(self.borderColor, lineWidth: 1))
+    }
+
+    private var statusIndicator: some View {
+        Circle()
+            .fill(self.statusColor)
+            .frame(width: 8, height: 8)
+    }
+
+    private var statusColor: Color {
+        switch self.config.status {
+        case .configured, .verified:
+            return .green
+        case .notConfigured:
+            return .gray
+        case .error:
+            return .red
+        }
+    }
+
+    private var borderColor: Color {
+        switch self.config.status {
+        case .configured, .verified:
+            return .green.opacity(0.3)
+        case .notConfigured:
+            return .gray.opacity(0.3)
+        case .error:
+            return .red.opacity(0.3)
+        }
+    }
+}
+
+// MARK: - 小型提供商模板卡片
+
+struct ProviderTemplateSmallCard: View {
+    let template: ProviderTemplate
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button {
+            self.onSelect()
+        } label: {
+            VStack(spacing: 8) {
+                Text(self.template.icon)
+                    .font(.title)
+                Text(self.template.name)
+                    .font(.caption.weight(.medium))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.accentColor.opacity(0.2), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 提供商配置弹窗
+
+struct ProviderConfigSheet: View {
+    @Bindable var store: ChannelsStore
+    let template: ProviderTemplate
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ProviderConfigFormView(
+            template: self.template,
+            store: self.store,
+            onSave: {
+                Task {
+                    await self.store.saveConfigDraft()
+                    self.onDismiss()
+                }
+            },
+            onCancel: {
+                self.onDismiss()
+            })
+    }
+}
+
+// MARK: - Preview
 
 struct ConfigSettings_Previews: PreviewProvider {
     static var previews: some View {

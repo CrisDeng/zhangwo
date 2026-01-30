@@ -494,4 +494,9 @@ final class ChannelsStore {
             providerStatus(for: template.id).isConfigured
         }
     }
+
+    /// 设置配置值（通过路径数组）- 便捷方法
+    func setConfigValue(at path: [ConfigPathSegment], value: Any?) {
+        updateConfigValue(path: path, value: value)
+    }
 }
