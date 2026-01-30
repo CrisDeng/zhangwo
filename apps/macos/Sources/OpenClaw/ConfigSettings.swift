@@ -530,7 +530,6 @@ struct ModelsQuickSetupView: View {
     @Bindable var store: ChannelsStore
     @State private var selectedTemplate: ProviderTemplate?
     @State private var configuredProviders: [ProviderConfigState] = []
-    @State private var showingProviderConfig = false
     @State private var selectedModel: String = ""
 
     var body: some View {
@@ -546,10 +545,10 @@ struct ModelsQuickSetupView: View {
             // 模型选择
             self.modelSelectionSection
 
-            // 连接测试
-            if !self.configuredProviders.isEmpty {
-                self.connectionTestSection
-            }
+            // 连接测试（暂时屏蔽）
+            // if !self.configuredProviders.isEmpty {
+            //     self.connectionTestSection
+            // }
         }
         .onAppear {
             self.loadConfiguredProviders()
@@ -558,16 +557,13 @@ struct ModelsQuickSetupView: View {
         .onChange(of: self.store.configDirty) { _, _ in
             self.loadConfiguredProviders()
         }
-        .sheet(isPresented: self.$showingProviderConfig) {
-            if let template = self.selectedTemplate {
-                ProviderConfigSheet(
-                    store: self.store,
-                    template: template,
-                    onDismiss: {
-                        self.showingProviderConfig = false
-                        self.selectedTemplate = nil
-                    })
-            }
+        .sheet(item: self.$selectedTemplate) { template in
+            ProviderConfigSheet(
+                store: self.store,
+                template: template,
+                onDismiss: {
+                    self.selectedTemplate = nil
+                })
         }
     }
 
@@ -590,7 +586,6 @@ struct ModelsQuickSetupView: View {
                         config: config,
                         onEdit: {
                             self.selectedTemplate = config.template
-                            self.showingProviderConfig = true
                         },
                         onDelete: {
                             self.deleteProvider(config.template)
@@ -621,7 +616,6 @@ struct ModelsQuickSetupView: View {
                 }) { template in
                     ProviderTemplateSmallCard(template: template) {
                         self.selectedTemplate = template
-                        self.showingProviderConfig = true
                     }
                 }
             }
@@ -745,8 +739,9 @@ struct ConfiguredProviderCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(self.config.template.icon)
+                Image(systemName: self.config.template.icon)
                     .font(.title2)
+                    .foregroundStyle(Color.accentColor)
                 Text(self.config.template.name)
                     .font(.headline)
                 Spacer()
@@ -825,8 +820,9 @@ struct ProviderTemplateSmallCard: View {
             self.onSelect()
         } label: {
             VStack(spacing: 8) {
-                Text(self.template.icon)
+                Image(systemName: self.template.icon)
                     .font(.title)
+                    .foregroundStyle(Color.accentColor)
                 Text(self.template.name)
                     .font(.caption.weight(.medium))
                     .lineLimit(1)
@@ -857,10 +853,9 @@ struct ProviderConfigSheet: View {
             template: self.template,
             store: self.store,
             onSave: {
-                Task {
-                    await self.store.saveConfigDraft()
-                    self.onDismiss()
-                }
+                // 注意: ProviderConfigFormView.saveConfig() 已经调用了 saveConfigDraft()
+                // 这里不需要再次调用，直接关闭弹窗即可
+                self.onDismiss()
             },
             onCancel: {
                 self.onDismiss()

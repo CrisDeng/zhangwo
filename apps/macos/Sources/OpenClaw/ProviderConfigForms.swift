@@ -67,6 +67,11 @@ struct ProviderConfigFormView: View {
                         modelSelectionSection
                     }
 
+                    // Base URL 配置（非本地提供商）
+                    if !template.isLocal {
+                        baseUrlSection
+                    }
+
                     // 高级设置
                     if !template.isLocal {
                         advancedSettingsSection
@@ -178,6 +183,28 @@ struct ProviderConfigFormView: View {
                 .fill(Color(nsColor: .controlBackgroundColor)))
     }
 
+    // MARK: - Base URL 配置
+
+    private var baseUrlSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Base URL")
+                .font(.headline)
+
+            TextField(
+                template.baseUrl ?? "使用默认 URL",
+                text: $customBaseUrl)
+                .textFieldStyle(.roundedBorder)
+
+            Text("留空使用默认值: \(template.baseUrl ?? "内置默认")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor)))
+    }
+
     // MARK: - 高级设置
 
     @State private var showAdvanced = false
@@ -202,21 +229,6 @@ struct ProviderConfigFormView: View {
 
             if showAdvanced {
                 VStack(alignment: .leading, spacing: 16) {
-                    // 自定义 Base URL
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("自定义 Base URL")
-                            .font(.callout.weight(.medium))
-                        TextField(
-                            template.baseUrl ?? "使用默认 URL",
-                            text: $customBaseUrl)
-                            .textFieldStyle(.roundedBorder)
-                        Text("留空使用默认值: \(template.baseUrl ?? "内置默认")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Divider()
-
                     // API 类型选择
                     VStack(alignment: .leading, spacing: 6) {
                         Text("API 类型")

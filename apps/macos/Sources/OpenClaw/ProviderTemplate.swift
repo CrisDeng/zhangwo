@@ -595,6 +595,42 @@ enum ProviderTemplates {
         features: ["视觉能力", "多模态"]
     )
 
+    // MARK: - DeepSeek
+
+    static let deepseek = ProviderTemplate(
+        id: "deepseek",
+        name: "DeepSeek",
+        icon: "magnifyingglass.circle.fill",
+        description: "DeepSeek 模型，强大的推理和编码能力",
+        authTypes: [.apiKey],
+        envKeys: ["DEEPSEEK_API_KEY"],
+        defaultModel: "deepseek/deepseek-chat",
+        baseUrl: "https://api.deepseek.com",
+        apiType: "openai-completions",
+        models: [
+            ProviderModel(
+                id: "deepseek-chat",
+                name: "DeepSeek Chat",
+                description: "通用对话模型",
+                reasoning: false,
+                contextWindow: 65536,
+                maxTokens: 8192,
+                isDefault: true
+            ),
+            ProviderModel(
+                id: "deepseek-reasoner",
+                name: "DeepSeek Reasoner",
+                description: "深度推理模型",
+                reasoning: true,
+                contextWindow: 65536,
+                maxTokens: 8192
+            )
+        ],
+        documentationUrl: "https://platform.deepseek.com/api-docs",
+        apiKeyUrl: "https://platform.deepseek.com/api_keys",
+        features: ["推理能力", "代码优化", "高性价比"]
+    )
+
     // MARK: - OpenCode Zen
 
     static let opencode = ProviderTemplate(
@@ -627,6 +663,7 @@ enum ProviderTemplates {
 
     /// 所有支持的提供商模板（按推荐顺序排列）
     static let all: [ProviderTemplate] = [
+        deepseek,
         moonshot,
         kimiCode,
         minimax,
@@ -637,6 +674,7 @@ enum ProviderTemplates {
 
     /// 常用/推荐的提供商模板
     static let recommended: [ProviderTemplate] = [
+        deepseek,
         moonshot,
         kimiCode,
         minimax,
