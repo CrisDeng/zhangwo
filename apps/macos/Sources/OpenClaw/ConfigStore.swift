@@ -63,10 +63,37 @@ enum ConfigStore {
                 do {
                     try await self.saveToGateway(root)
                 } catch {
-                    OpenClawConfigFile.saveDict(root)
+                    // Fallback: merge with existing config instead of overwriting
+                    self.saveLocalMerged(root)
                 }
             }
         }
+    }
+
+    /// Saves config locally by merging with existing config (incremental update).
+    /// This prevents accidentally overwriting the entire config file when gateway is unavailable.
+    @MainActor
+    private static func saveLocalMerged(_ patch: [String: Any]) {
+        let existing = OpenClawConfigFile.loadDict()
+        let merged = Self.deepMerge(existing, patch)
+        OpenClawConfigFile.saveDict(merged)
+    }
+
+    /// Deep merge two dictionaries. Values from `patch` override values in `base`.
+    /// Nested dictionaries are merged recursively.
+    private static func deepMerge(_ base: [String: Any], _ patch: [String: Any]) -> [String: Any] {
+        var result = base
+        for (key, patchValue) in patch {
+            if let patchDict = patchValue as? [String: Any],
+               let baseDict = base[key] as? [String: Any] {
+                // Recursively merge nested dictionaries
+                result[key] = Self.deepMerge(baseDict, patchDict)
+            } else {
+                // Overwrite with patch value
+                result[key] = patchValue
+            }
+        }
+        return result
     }
 
     @MainActor
@@ -98,8 +125,10 @@ enum ConfigStore {
         if let baseHash = self.lastHash {
             params["baseHash"] = AnyCodable(baseHash)
         }
+        // Use config.patch instead of config.set to merge with existing config
+        // rather than completely overwriting it
         _ = try await GatewayConnection.shared.requestRaw(
-            method: .configSet,
+            method: .configPatch,
             params: params,
             timeoutMs: 10000)
         _ = await self.loadFromGateway()

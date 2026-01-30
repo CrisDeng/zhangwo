@@ -739,7 +739,7 @@ extension OnboardingView {
                     subtitle: "点击 OpenClaw 菜单栏图标即可快速聊天和查看状态。",
                     systemImage: "bubble.left.and.bubble.right")
                 self.featureActionRow(
-                    title: "连接 WhatsApp 或 Telegram",
+                    title: "连接 QQBot",
                     subtitle: "打开 设置 → 频道 来关联频道并监控状态。",
                     systemImage: "link",
                     buttonTitle: "打开 设置 → 频道")
