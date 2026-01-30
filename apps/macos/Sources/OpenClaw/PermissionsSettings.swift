@@ -12,7 +12,7 @@ struct PermissionsSettings: View {
         VStack(alignment: .leading, spacing: 14) {
             SystemRunSettingsView()
 
-            Text("Allow these so OpenClaw can notify and capture when needed.")
+            Text("请授予这些权限，以便 OpenClaw 在需要时进行通知和屏幕捕获。")
                 .padding(.top, 4)
 
             PermissionStatusList(status: self.status, refresh: self.refresh)
@@ -21,7 +21,7 @@ struct PermissionsSettings: View {
 
             LocationAccessSettings()
 
-            Button("Restart onboarding") { self.showOnboarding() }
+            Button("重新开始引导") { self.showOnboarding() }
                 .buttonStyle(.bordered)
             Spacer()
         }
@@ -37,21 +37,21 @@ private struct LocationAccessSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Location Access")
+            Text("位置访问")
                 .font(.body)
 
             Picker("", selection: self.$locationModeRaw) {
-                Text("Off").tag(OpenClawLocationMode.off.rawValue)
-                Text("While Using").tag(OpenClawLocationMode.whileUsing.rawValue)
-                Text("Always").tag(OpenClawLocationMode.always.rawValue)
+                Text("关闭").tag(OpenClawLocationMode.off.rawValue)
+                Text("使用期间").tag(OpenClawLocationMode.whileUsing.rawValue)
+                Text("始终").tag(OpenClawLocationMode.always.rawValue)
             }
             .labelsHidden()
             .pickerStyle(.menu)
 
-            Toggle("Precise Location", isOn: self.$locationPreciseEnabled)
+            Toggle("精确位置", isOn: self.$locationPreciseEnabled)
                 .disabled(self.locationMode == .off)
 
-            Text("Always may require System Settings to approve background location.")
+            Text("选择「始终」可能需要在系统设置中批准后台位置权限。")
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -110,13 +110,13 @@ struct PermissionStatusList: View {
             Button {
                 Task { await self.refresh() }
             } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
+                Label("刷新", systemImage: "arrow.clockwise")
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .font(.footnote)
             .padding(.top, 2)
-            .help("Refresh status")
+            .help("刷新权限状态")
         }
     }
 
@@ -154,10 +154,10 @@ struct PermissionRow: View {
             }
             Spacer()
             if self.status {
-                Label("Granted", systemImage: "checkmark.circle.fill")
+                Label("已授权", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
-                Button("Grant") { self.action() }
+                Button("授权") { self.action() }
                     .buttonStyle(.bordered)
             }
         }
@@ -168,28 +168,28 @@ struct PermissionRow: View {
 
     private var title: String {
         switch self.capability {
-        case .appleScript: "Automation (AppleScript)"
-        case .notifications: "Notifications"
-        case .accessibility: "Accessibility"
-        case .screenRecording: "Screen Recording"
-        case .microphone: "Microphone"
-        case .speechRecognition: "Speech Recognition"
-        case .camera: "Camera"
-        case .location: "Location"
+        case .appleScript: "自动化 (AppleScript)"
+        case .notifications: "通知"
+        case .accessibility: "辅助功能"
+        case .screenRecording: "屏幕录制"
+        case .microphone: "麦克风"
+        case .speechRecognition: "语音识别"
+        case .camera: "相机"
+        case .location: "位置"
         }
     }
 
     private var subtitle: String {
         switch self.capability {
         case .appleScript:
-            "Control other apps (e.g. Terminal) for automation actions"
-        case .notifications: "Show desktop alerts for agent activity"
-        case .accessibility: "Control UI elements when an action requires it"
-        case .screenRecording: "Capture the screen for context or screenshots"
-        case .microphone: "Allow Voice Wake and audio capture"
-        case .speechRecognition: "Transcribe Voice Wake trigger phrases on-device"
-        case .camera: "Capture photos and video from the camera"
-        case .location: "Share location when requested by the agent"
+            "控制其他应用（如终端）执行自动化操作"
+        case .notifications: "显示代理活动的桌面通知"
+        case .accessibility: "在需要时控制界面元素"
+        case .screenRecording: "捕获屏幕用于上下文或截图"
+        case .microphone: "允许语音唤醒和音频捕获"
+        case .speechRecognition: "在设备上转录语音唤醒触发词"
+        case .camera: "从相机拍摄照片和视频"
+        case .location: "在代理请求时共享位置"
         }
     }
 

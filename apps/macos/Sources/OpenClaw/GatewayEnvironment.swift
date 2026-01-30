@@ -111,6 +111,17 @@ enum GatewayEnvironment {
         let expected = self.expectedGatewayVersion()
         let expectedString = self.expectedGatewayVersionString()
 
+        // Check bundled runtime first
+        if CommandResolver.hasBundledRuntime() {
+            self.logger.debug("Using bundled runtime")
+            return GatewayEnvironmentStatus(
+                kind: .ok,
+                nodeVersion: "bundled",
+                gatewayVersion: expectedString ?? "bundled",
+                requiredGateway: expectedString,
+                message: "Using bundled runtime")
+        }
+
         let projectRoot = CommandResolver.projectRoot()
         let projectEntrypoint = CommandResolver.gatewayEntrypoint(in: projectRoot)
 
@@ -178,6 +189,27 @@ enum GatewayEnvironment {
                 self.logger.debug("gateway command resolve ok (\(elapsedMs, privacy: .public)ms)")
             }
         }
+
+        // Prefer bundled runtime if available
+        if let bundledNode = CommandResolver.bundledNodePath(),
+           let bundledEntry = CommandResolver.bundledCLIEntrypoint() ?? CommandResolver.bundledCLIDistEntrypoint()
+        {
+            let port = self.gatewayPort()
+            let bind = self.preferredGatewayBind() ?? "loopback"
+            let cmd = [bundledNode, bundledEntry, "gateway-daemon", "--port", "\(port)", "--bind", bind]
+            let expectedString = self.expectedGatewayVersionString()
+            let status = GatewayEnvironmentStatus(
+                kind: .ok,
+                nodeVersion: "bundled",
+                gatewayVersion: expectedString ?? "bundled",
+                requiredGateway: expectedString,
+                message: "Using bundled runtime")
+            self.logger.info(
+                "resolved gateway command (bundled) node=\(bundledNode, privacy: .public) " +
+                "entry=\(bundledEntry, privacy: .public)")
+            return GatewayCommandResolution(status: status, command: cmd)
+        }
+
         let projectRoot = CommandResolver.projectRoot()
         let projectEntrypoint = CommandResolver.gatewayEntrypoint(in: projectRoot)
         let status = self.check()

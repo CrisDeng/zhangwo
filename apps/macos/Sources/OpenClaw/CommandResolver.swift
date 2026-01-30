@@ -4,6 +4,47 @@ enum CommandResolver {
     private static let projectRootDefaultsKey = "openclaw.gatewayProjectRootPath"
     private static let helperName = "openclaw"
 
+    // MARK: - Bundled Runtime
+
+    /// Returns the path to the bundled Node.js binary, if present.
+    static func bundledNodePath() -> String? {
+        guard let resourceURL = Bundle.main.resourceURL else { return nil }
+        let nodePath = resourceURL
+            .appendingPathComponent("runtime")
+            .appendingPathComponent("node")
+            .appendingPathComponent("node")
+            .path
+        return FileManager.default.isExecutableFile(atPath: nodePath) ? nodePath : nil
+    }
+
+    /// Returns the path to the bundled OpenClaw CLI entrypoint, if present.
+    static func bundledCLIEntrypoint() -> String? {
+        guard let resourceURL = Bundle.main.resourceURL else { return nil }
+        let entrypoint = resourceURL
+            .appendingPathComponent("runtime")
+            .appendingPathComponent("openclaw")
+            .appendingPathComponent("openclaw.mjs")
+            .path
+        return FileManager.default.fileExists(atPath: entrypoint) ? entrypoint : nil
+    }
+
+    /// Returns the bundled CLI dist/index.js path as fallback.
+    static func bundledCLIDistEntrypoint() -> String? {
+        guard let resourceURL = Bundle.main.resourceURL else { return nil }
+        let entrypoint = resourceURL
+            .appendingPathComponent("runtime")
+            .appendingPathComponent("openclaw")
+            .appendingPathComponent("dist")
+            .appendingPathComponent("index.js")
+            .path
+        return FileManager.default.fileExists(atPath: entrypoint) ? entrypoint : nil
+    }
+
+    /// Returns true if bundled runtime is available and usable.
+    static func hasBundledRuntime() -> Bool {
+        bundledNodePath() != nil && (bundledCLIEntrypoint() != nil || bundledCLIDistEntrypoint() != nil)
+    }
+
     static func gatewayEntrypoint(in root: URL) -> String? {
         let distEntry = root.appendingPathComponent("dist/index.js").path
         if FileManager().isReadableFile(atPath: distEntry) { return distEntry }
@@ -89,6 +130,18 @@ enum CommandResolver {
         // Dev-only convenience. Avoid project-local PATH hijacking in release builds.
         extras.insert(projectRoot.appendingPathComponent("node_modules/.bin").path, at: 0)
         #endif
+
+        // Add bundled runtime path at highest priority (after dev paths).
+        if let bundledNodeDir = self.bundledNodeDirectory() {
+            let insertIndex: Int
+            #if DEBUG
+            insertIndex = 1
+            #else
+            insertIndex = 0
+            #endif
+            extras.insert(bundledNodeDir, at: insertIndex)
+        }
+
         let openclawPaths = self.openclawManagedPaths(home: home)
         if !openclawPaths.isEmpty {
             extras.insert(contentsOf: openclawPaths, at: 1)
@@ -97,6 +150,17 @@ enum CommandResolver {
         var seen = Set<String>()
         // Preserve order while stripping duplicates so PATH lookups remain deterministic.
         return (extras + current).filter { seen.insert($0).inserted }
+    }
+
+    /// Returns the directory containing the bundled node binary.
+    private static func bundledNodeDirectory() -> String? {
+        guard let resourceURL = Bundle.main.resourceURL else { return nil }
+        let nodeDir = resourceURL
+            .appendingPathComponent("runtime")
+            .appendingPathComponent("node")
+            .path
+        let nodeBin = (nodeDir as NSString).appendingPathComponent("node")
+        return FileManager.default.isExecutableFile(atPath: nodeBin) ? nodeDir : nil
     }
 
     private static func openclawManagedPaths(home: URL) -> [String] {

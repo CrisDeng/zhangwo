@@ -252,6 +252,14 @@ else
   fi
 fi
 
+# Bundle Node.js runtime and CLI (optional, controlled by BUNDLE_RUNTIME)
+if [[ "${BUNDLE_RUNTIME:-1}" == "1" ]]; then
+  echo "📦 Bundling Node.js runtime and OpenClaw CLI"
+  "$ROOT_DIR/scripts/bundle-runtime.sh" "$APP_ROOT/Contents/Resources"
+else
+  echo "📦 Skipping runtime bundling (BUNDLE_RUNTIME=0)"
+fi
+
 echo "⏹  Stopping any running OpenClaw"
 killall -q OpenClaw 2>/dev/null || true
 

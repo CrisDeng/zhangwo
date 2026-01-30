@@ -12,6 +12,7 @@ coverage
 .worktrees/
 .DS_Store
 **/.DS_Store
+.cache/
 ui/src/ui/__screenshots__/
 ui/playwright-report/
 ui/test-results/

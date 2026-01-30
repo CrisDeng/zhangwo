@@ -7,7 +7,7 @@ import Observation
 import SwiftUI
 
 enum UIStrings {
-    static let welcomeTitle = "Welcome to OpenClaw"
+    static let welcomeTitle = "欢迎使用 OpenClaw"
 }
 
 @MainActor
@@ -147,7 +147,7 @@ struct OnboardingView: View {
         self.activePageIndex(for: self.currentPage)
     }
 
-    var buttonTitle: String { self.currentPage == self.pageCount - 1 ? "Finish" : "Next" }
+    var buttonTitle: String { self.currentPage == self.pageCount - 1 ? "完成" : "下一步" }
     var wizardPageOrderIndex: Int? { self.pageOrder.firstIndex(of: self.wizardPageIndex) }
     var isWizardBlocking: Bool {
         self.activePageIndex == self.wizardPageIndex && !self.onboardingWizard.isComplete
