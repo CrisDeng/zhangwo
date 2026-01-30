@@ -73,7 +73,7 @@ export const SECTION_META: Record<string, { label: string; description: string }
   logging: { label: "Logging", description: "Log levels and output configuration" },
   browser: { label: "Browser", description: "Browser automation settings" },
   ui: { label: "UI", description: "User interface preferences" },
-  models: { label: "Models", description: "AI model configurations and providers" },
+  models: { label: "模型配置", description: "AI 模型配置和提供商设置" },
   bindings: { label: "Bindings", description: "Key bindings and shortcuts" },
   broadcast: { label: "Broadcast", description: "Broadcast and notification settings" },
   audio: { label: "Audio", description: "Audio input/output settings" },
