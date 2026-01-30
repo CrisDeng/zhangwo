@@ -468,6 +468,18 @@ struct ProviderConfigFormView: View {
         errorMessage = nil
         defer { isSaving = false }
 
+        // 确保配置已加载，避免覆盖其他配置
+        if !store.configLoaded {
+            await store.loadConfigSchema()
+            await store.loadConfig()
+        }
+        
+        // 再次检查配置是否加载成功
+        guard store.configLoaded else {
+            errorMessage = "无法加载配置，请稍后重试"
+            return
+        }
+
         let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // 构建成本配置
