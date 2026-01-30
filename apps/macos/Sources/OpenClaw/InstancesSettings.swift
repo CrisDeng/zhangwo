@@ -12,14 +12,14 @@ struct InstancesSettings: View {
         VStack(alignment: .leading, spacing: 12) {
             self.header
             if let err = store.lastError {
-                Text("Error: \(err)")
+                Text("错误: \(err)")
                     .foregroundStyle(.red)
             } else if let info = store.statusMessage {
                 Text(info)
                     .foregroundStyle(.secondary)
             }
             if self.store.instances.isEmpty {
-                Text("No instances reported yet.")
+                Text("暂无实例报告。")
                     .foregroundStyle(.secondary)
             } else {
                 List(self.store.instances) { inst in
@@ -36,9 +36,9 @@ struct InstancesSettings: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Connected Instances")
+                Text("已连接实例")
                     .font(.headline)
-                Text("Latest presence beacons from OpenClaw nodes. Updated periodically.")
+                Text("来自 OpenClaw 节点的最新存在信标。定期更新。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -49,10 +49,10 @@ struct InstancesSettings: View {
                 Button {
                     Task { await self.store.refresh() }
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label("刷新", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
-                .help("Refresh")
+                .help("刷新")
             }
         }
     }
@@ -124,7 +124,7 @@ struct InstancesSettings: View {
         .padding(.vertical, 6)
         .help(inst.text)
         .contextMenu {
-            Button("Copy Debug Summary") {
+            Button("复制调试摘要") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(inst.text, forType: .string)
             }
@@ -158,16 +158,16 @@ struct InstancesSettings: View {
                 .foregroundStyle(.secondary)
         }
         .font(.caption)
-        .help("Presence updated \(inst.ageDescription).")
-        .accessibilityLabel("\(status.label) presence")
+        .help("存在状态更新于 \(inst.ageDescription)。")
+        .accessibilityLabel("\(status.label) 存在状态")
     }
 
     private func presenceStatus(for inst: InstanceInfo) -> (label: String, color: Color) {
         let nowMs = Date().timeIntervalSince1970 * 1000
         let ageSeconds = max(0, Int((nowMs - inst.ts) / 1000))
-        if ageSeconds <= 120 { return ("Active", .green) }
-        if ageSeconds <= 300 { return ("Idle", .yellow) }
-        return ("Stale", .gray)
+        if ageSeconds <= 120 { return ("活跃", .green) }
+        if ageSeconds <= 300 { return ("空闲", .yellow) }
+        return ("过期", .gray)
     }
 
     @ViewBuilder
@@ -326,23 +326,23 @@ struct InstancesSettings: View {
         guard !trimmed.isEmpty else { return nil }
         switch trimmed {
         case "self":
-            return "Self"
+            return "自身"
         case "connect":
-            return "Connect"
+            return "连接"
         case "disconnect":
-            return "Disconnect"
+            return "断开"
         case "node-connected":
-            return "Node connect"
+            return "节点连接"
         case "node-disconnected":
-            return "Node disconnect"
+            return "节点断开"
         case "launch":
-            return "Launch"
+            return "启动"
         case "periodic":
-            return "Heartbeat"
+            return "心跳"
         case "instances-refresh":
-            return "Instances"
+            return "实例刷新"
         case "seq gap":
-            return "Resync"
+            return "重新同步"
         default:
             return trimmed
         }
@@ -367,9 +367,9 @@ struct InstancesSettings: View {
     private func presenceUpdateSourceHelp(_ reason: String) -> String {
         let trimmed = reason.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            return "Why this presence entry was last updated (debug marker)."
+            return "此存在条目最后更新的原因（调试标记）。"
         }
-        return "Why this presence entry was last updated (debug marker). Raw: \(trimmed)"
+        return "此存在条目最后更新的原因（调试标记）。原始值: \(trimmed)"
     }
 }
 

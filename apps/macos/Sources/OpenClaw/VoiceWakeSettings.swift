@@ -49,23 +49,23 @@ struct VoiceWakeSettings: View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 14) {
                 SettingsToggleRow(
-                    title: "Enable Voice Wake",
-                    subtitle: "Listen for a wake phrase (e.g. \"Claude\") before running voice commands. "
-                        + "Voice recognition runs fully on-device.",
+                    title: "启用语音唤醒",
+                    subtitle: "在运行语音命令之前监听唤醒词（如「Claude」）。"
+                        + "语音识别完全在设备上运行。",
                     binding: self.voiceWakeBinding)
                     .disabled(!voiceWakeSupported)
 
                 SettingsToggleRow(
-                    title: "Hold Right Option to talk",
+                    title: "按住右 Option 键说话",
                     subtitle: """
-                    Push-to-talk mode that starts listening while you hold the key
-                    and shows the preview overlay.
+                    按住键时开始监听的一键通话模式，
+                    并显示预览浮层。
                     """,
                     binding: self.$state.voicePushToTalkEnabled)
                     .disabled(!voiceWakeSupported)
 
                 if !voiceWakeSupported {
-                    Label("Voice Wake requires macOS 26 or newer.", systemImage: "exclamationmark.triangle.fill")
+                    Label("语音唤醒需要 macOS 26 或更高版本。", systemImage: "exclamationmark.triangle.fill")
                         .font(.callout)
                         .foregroundStyle(.yellow)
                         .padding(8)
@@ -155,18 +155,18 @@ struct VoiceWakeSettings: View {
     private var triggerTable: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Trigger words")
+                Text("触发词")
                     .font(.callout.weight(.semibold))
                 Spacer()
                 Button {
                     self.addWord()
                 } label: {
-                    Label("Add word", systemImage: "plus")
+                    Label("添加词语", systemImage: "plus")
                 }
                 .disabled(self.triggerEntries
                     .contains(where: { $0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }))
 
-                Button("Reset defaults") {
+                Button("重置为默认") {
                     self.triggerEntries = defaultVoiceWakeTriggers.map { TriggerEntry(id: UUID(), value: $0) }
                     self.syncTriggerEntriesToState()
                 }
@@ -175,7 +175,7 @@ struct VoiceWakeSettings: View {
             VStack(spacing: 0) {
                 ForEach(self.$triggerEntries) { $entry in
                     HStack(spacing: 8) {
-                        TextField("Wake word", text: $entry.value)
+                        TextField("唤醒词", text: $entry.value)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit {
                                 self.syncTriggerEntriesToState()
@@ -187,7 +187,7 @@ struct VoiceWakeSettings: View {
                             Image(systemName: "trash")
                         }
                         .buttonStyle(.borderless)
-                        .help("Remove trigger word")
+                        .help("移除触发词")
                         .frame(width: 24)
                     }
                     .padding(8)
@@ -205,8 +205,8 @@ struct VoiceWakeSettings: View {
                     .stroke(Color.secondary.opacity(0.25), lineWidth: 1))
 
             Text(
-                "OpenClaw reacts when any trigger appears in a transcription. "
-                    + "Keep them short to avoid false positives.")
+                "当转录中出现任何触发词时，OpenClaw 将做出响应。"
+                    + "请保持触发词简短以避免误触发。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -216,17 +216,17 @@ struct VoiceWakeSettings: View {
     private var chimeSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("Sounds")
+                Text("提示音")
                     .font(.callout.weight(.semibold))
                 Spacer()
             }
 
             self.chimeRow(
-                title: "Trigger sound",
+                title: "触发提示音",
                 selection: self.$state.voiceWakeTriggerChime)
 
             self.chimeRow(
-                title: "Send sound",
+                title: "发送提示音",
                 selection: self.$state.voiceWakeSendChime)
         }
         .padding(.top, 4)
@@ -313,7 +313,7 @@ struct VoiceWakeSettings: View {
                 .frame(width: self.fieldLabelWidth, alignment: .leading)
 
             Menu {
-                Button("No Sound") { self.selectChime(.none, binding: selection) }
+                Button("无声音") { self.selectChime(.none, binding: selection) }
                 Divider()
                 ForEach(VoiceWakeChimeCatalog.systemOptions, id: \.self) { option in
                     Button(VoiceWakeChimeCatalog.displayName(for: option)) {
@@ -321,7 +321,7 @@ struct VoiceWakeSettings: View {
                     }
                 }
                 Divider()
-                Button("Choose file…") { self.chooseCustomChime(for: selection) }
+                Button("选择文件…") { self.chooseCustomChime(for: selection) }
             } label: {
                 HStack(spacing: 6) {
                     Text(selection.wrappedValue.displayLabel)
@@ -341,7 +341,7 @@ struct VoiceWakeSettings: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
-            Button("Play") {
+            Button("播放") {
                 VoiceWakeChimePlayer.play(selection.wrappedValue)
             }
             .keyboardShortcut(.space, modifiers: [.command])
@@ -390,13 +390,13 @@ struct VoiceWakeSettings: View {
     private var micPicker: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("Microphone")
+                Text("麦克风")
                     .font(.callout.weight(.semibold))
                     .frame(width: self.fieldLabelWidth, alignment: .leading)
-                Picker("Microphone", selection: self.$state.voiceWakeMicID) {
-                    Text("System default").tag("")
+                Picker("麦克风", selection: self.$state.voiceWakeMicID) {
+                    Text("系统默认").tag("")
                     if self.isSelectedMicUnavailable {
-                        Text(self.state.voiceWakeMicName.isEmpty ? "Unavailable" : self.state.voiceWakeMicName)
+                        Text(self.state.voiceWakeMicName.isEmpty ? "不可用" : self.state.voiceWakeMicName)
                             .tag(self.state.voiceWakeMicID)
                     }
                     ForEach(self.availableMics) { mic in
@@ -409,7 +409,7 @@ struct VoiceWakeSettings: View {
             if self.isSelectedMicUnavailable {
                 HStack(spacing: 10) {
                     Color.clear.frame(width: self.fieldLabelWidth, height: 1)
-                    Text("Disconnected (using System default)")
+                    Text("已断开（使用系统默认）")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -424,12 +424,12 @@ struct VoiceWakeSettings: View {
     private var localePicker: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("Recognition language")
+                Text("识别语言")
                     .font(.callout.weight(.semibold))
                     .frame(width: self.fieldLabelWidth, alignment: .leading)
-                Picker("Language", selection: self.$state.voiceWakeLocaleID) {
+                Picker("语言", selection: self.$state.voiceWakeLocaleID) {
                     let current = Locale(identifier: Locale.current.identifier)
-                    Text("\(self.friendlyName(for: current)) (System)").tag(Locale.current.identifier)
+                    Text("\(self.friendlyName(for: current))（系统）").tag(Locale.current.identifier)
                     ForEach(self.availableLocales.map(\.identifier), id: \.self) { id in
                         if id != Locale.current.identifier {
                             Text(self.friendlyName(for: Locale(identifier: id))).tag(id)
@@ -442,14 +442,14 @@ struct VoiceWakeSettings: View {
 
             if !self.state.voiceWakeAdditionalLocaleIDs.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Additional languages")
+                    Text("附加语言")
                         .font(.footnote.weight(.semibold))
                     ForEach(
                         Array(self.state.voiceWakeAdditionalLocaleIDs.enumerated()),
                         id: \.offset)
                     { idx, localeID in
                         HStack(spacing: 8) {
-                            Picker("Extra \(idx + 1)", selection: Binding(
+                            Picker("附加 \(idx + 1)", selection: Binding(
                                 get: { localeID },
                                 set: { newValue in
                                     guard self.state
@@ -473,7 +473,7 @@ struct VoiceWakeSettings: View {
                                 Image(systemName: "trash")
                             }
                             .buttonStyle(.borderless)
-                            .help("Remove language")
+                            .help("移除语言")
                         }
                     }
 
@@ -482,7 +482,7 @@ struct VoiceWakeSettings: View {
                             self.state.voiceWakeAdditionalLocaleIDs.append(first.identifier)
                         }
                     } label: {
-                        Label("Add language", systemImage: "plus")
+                        Label("添加语言", systemImage: "plus")
                     }
                     .disabled(self.availableLocales.isEmpty)
                 }
@@ -493,14 +493,14 @@ struct VoiceWakeSettings: View {
                         self.state.voiceWakeAdditionalLocaleIDs.append(first.identifier)
                     }
                 } label: {
-                    Label("Add additional language", systemImage: "plus")
+                    Label("添加附加语言", systemImage: "plus")
                 }
                 .buttonStyle(.link)
                 .disabled(self.availableLocales.isEmpty)
                 .padding(.top, 4)
             }
 
-            Text("Languages are tried in order. Models may need a first-use download on macOS 26.")
+            Text("语言按顺序尝试。在 macOS 26 上，模型可能需要首次使用时下载。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -592,7 +592,7 @@ struct VoiceWakeSettings: View {
     private var levelMeter: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 10) {
-                Text("Live level")
+                Text("实时电平")
                     .font(.callout.weight(.semibold))
                     .frame(width: self.fieldLabelWidth, alignment: .leading)
                 MicLevelBar(level: self.meterLevel)

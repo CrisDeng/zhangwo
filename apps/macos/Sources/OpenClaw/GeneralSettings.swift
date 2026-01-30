@@ -24,8 +24,8 @@ struct GeneralSettings: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 12) {
                     SettingsToggleRow(
-                        title: "OpenClaw active",
-                        subtitle: "Pause to stop the OpenClaw gateway; no messages will be processed.",
+                        title: "OpenClaw 激活",
+                        subtitle: "暂停以停止 OpenClaw 网关；消息将不会被处理。",
                         binding: self.activeBinding)
 
                     self.connectionSection
@@ -33,45 +33,45 @@ struct GeneralSettings: View {
                     Divider()
 
                     SettingsToggleRow(
-                        title: "Launch at login",
-                        subtitle: "Automatically start OpenClaw after you sign in.",
+                        title: "登录时启动",
+                        subtitle: "登录后自动启动 OpenClaw。",
                         binding: self.$state.launchAtLogin)
 
                     SettingsToggleRow(
-                        title: "Show Dock icon",
-                        subtitle: "Keep OpenClaw visible in the Dock instead of menu-bar-only mode.",
+                        title: "显示 Dock 图标",
+                        subtitle: "在 Dock 中显示 OpenClaw，而不是仅在菜单栏显示。",
                         binding: self.$state.showDockIcon)
 
                     SettingsToggleRow(
-                        title: "Play menu bar icon animations",
-                        subtitle: "Enable idle blinks and wiggles on the status icon.",
+                        title: "播放菜单栏图标动画",
+                        subtitle: "启用状态图标的闲置眨眼和摆动动画。",
                         binding: self.$state.iconAnimationsEnabled)
 
                     SettingsToggleRow(
-                        title: "Allow Canvas",
-                        subtitle: "Allow the agent to show and control the Canvas panel.",
+                        title: "允许 Canvas",
+                        subtitle: "允许代理显示和控制 Canvas 面板。",
                         binding: self.$state.canvasEnabled)
 
                     SettingsToggleRow(
-                        title: "Allow Camera",
-                        subtitle: "Allow the agent to capture a photo or short video via the built-in camera.",
+                        title: "允许相机",
+                        subtitle: "允许代理通过内置相机拍摄照片或短视频。",
                         binding: self.$cameraEnabled)
 
                     SettingsToggleRow(
-                        title: "Enable Peekaboo Bridge",
-                        subtitle: "Allow signed tools (e.g. `peekaboo`) to drive UI automation via PeekabooBridge.",
+                        title: "启用 Peekaboo Bridge",
+                        subtitle: "允许签名工具（如 `peekaboo`）通过 PeekabooBridge 驱动 UI 自动化。",
                         binding: self.$state.peekabooBridgeEnabled)
 
                     SettingsToggleRow(
-                        title: "Enable debug tools",
-                        subtitle: "Show the Debug tab with development utilities.",
+                        title: "启用调试工具",
+                        subtitle: "显示包含开发工具的调试选项卡。",
                         binding: self.$state.debugPaneEnabled)
                 }
 
                 Spacer(minLength: 12)
                 HStack {
                     Spacer()
-                    Button("Quit OpenClaw") { NSApp.terminate(nil) }
+                    Button("退出 OpenClaw") { NSApp.terminate(nil) }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -98,21 +98,21 @@ struct GeneralSettings: View {
 
     private var connectionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("OpenClaw runs")
+            Text("OpenClaw 运行方式")
                 .font(.title3.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Picker("Mode", selection: self.$state.connectionMode) {
-                Text("Not configured").tag(AppState.ConnectionMode.unconfigured)
-                Text("Local (this Mac)").tag(AppState.ConnectionMode.local)
-                Text("Remote (another host)").tag(AppState.ConnectionMode.remote)
+            Picker("模式", selection: self.$state.connectionMode) {
+                Text("未配置").tag(AppState.ConnectionMode.unconfigured)
+                Text("本地（此 Mac）").tag(AppState.ConnectionMode.local)
+                Text("远程（其他主机）").tag(AppState.ConnectionMode.remote)
             }
             .pickerStyle(.menu)
             .labelsHidden()
             .frame(width: 260, alignment: .leading)
 
             if self.state.connectionMode == .unconfigured {
-                Text("Pick Local or Remote to start the Gateway.")
+                Text("选择本地或远程以启动网关。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -161,17 +161,17 @@ struct GeneralSettings: View {
             if self.state.remoteTransport == .ssh {
                 DisclosureGroup(isExpanded: self.$showRemoteAdvanced) {
                     VStack(alignment: .leading, spacing: 8) {
-                        LabeledContent("Identity file") {
+                        LabeledContent("身份文件") {
                             TextField("/Users/you/.ssh/id_ed25519", text: self.$state.remoteIdentity)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 280)
                         }
-                        LabeledContent("Project root") {
+                        LabeledContent("项目根目录") {
                             TextField("/home/you/Projects/openclaw", text: self.$state.remoteProjectRoot)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 280)
                         }
-                        LabeledContent("CLI path") {
+                        LabeledContent("CLI 路径") {
                             TextField("/Applications/OpenClaw.app/.../openclaw", text: self.$state.remoteCliPath)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 280)
@@ -179,18 +179,18 @@ struct GeneralSettings: View {
                     }
                     .padding(.top, 4)
                 } label: {
-                    Text("Advanced")
+                    Text("高级")
                         .font(.callout.weight(.semibold))
                 }
             }
 
             // Diagnostics
             VStack(alignment: .leading, spacing: 4) {
-                Text("Control channel")
+                Text("控制通道")
                     .font(.caption.weight(.semibold))
                 if !self.isControlStatusDuplicate || ControlChannel.shared.lastPingMs != nil {
                     let status = self.isControlStatusDuplicate ? nil : self.controlStatusLine
-                    let ping = ControlChannel.shared.lastPingMs.map { "Ping \(Int($0)) ms" }
+                    let ping = ControlChannel.shared.lastPingMs.map { "延迟 \(Int($0)) ms" }
                     let line = [status, ping].compactMap(\.self).joined(separator: " · ")
                     if !line.isEmpty {
                         Text(line)
@@ -200,7 +200,7 @@ struct GeneralSettings: View {
                 }
                 if let hb = HeartbeatStore.shared.lastEvent {
                     let ageText = age(from: Date(timeIntervalSince1970: hb.ts / 1000))
-                    Text("Last heartbeat: \(hb.status) · \(ageText)")
+                    Text("最近心跳: \(hb.status) · \(ageText)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -212,12 +212,12 @@ struct GeneralSettings: View {
             }
 
             if self.state.remoteTransport == .ssh {
-                Text("Tip: enable Tailscale for stable remote access.")
+                Text("提示：启用 Tailscale 以获得稳定的远程访问。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             } else {
-                Text("Tip: use Tailscale Serve so the gateway has a valid HTTPS cert.")
+                Text("提示：使用 Tailscale Serve 以便网关获得有效的 HTTPS 证书。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -230,12 +230,12 @@ struct GeneralSettings: View {
 
     private var remoteTransportRow: some View {
         HStack(alignment: .center, spacing: 10) {
-            Text("Transport")
+            Text("传输方式")
                 .font(.callout.weight(.semibold))
                 .frame(width: self.remoteLabelWidth, alignment: .leading)
-            Picker("Transport", selection: self.$state.remoteTransport) {
-                Text("SSH tunnel").tag(AppState.RemoteTransport.ssh)
-                Text("Direct (ws/wss)").tag(AppState.RemoteTransport.direct)
+            Picker("传输方式", selection: self.$state.remoteTransport) {
+                Text("SSH 隧道").tag(AppState.RemoteTransport.ssh)
+                Text("直连 (ws/wss)").tag(AppState.RemoteTransport.direct)
             }
             .pickerStyle(.segmented)
             .frame(maxWidth: 320)
@@ -249,7 +249,7 @@ struct GeneralSettings: View {
 
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .center, spacing: 10) {
-                Text("SSH target")
+                Text("SSH 目标")
                     .font(.callout.weight(.semibold))
                     .frame(width: self.remoteLabelWidth, alignment: .leading)
                 TextField("user@host[:22]", text: self.$state.remoteTarget)
@@ -261,7 +261,7 @@ struct GeneralSettings: View {
                     if self.remoteStatus == .checking {
                         ProgressView().controlSize(.small)
                     } else {
-                        Text("Test remote")
+                        Text("测试远程连接")
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -279,7 +279,7 @@ struct GeneralSettings: View {
     private var remoteDirectRow: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 10) {
-                Text("Gateway")
+                Text("网关")
                     .font(.callout.weight(.semibold))
                     .frame(width: self.remoteLabelWidth, alignment: .leading)
                 TextField("wss://gateway.example.ts.net", text: self.$state.remoteUrl)
@@ -291,14 +291,14 @@ struct GeneralSettings: View {
                     if self.remoteStatus == .checking {
                         ProgressView().controlSize(.small)
                     } else {
-                        Text("Test remote")
+                        Text("测试远程连接")
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(self.remoteStatus == .checking || self.state.remoteUrl
                     .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            Text("Direct mode requires a ws:// or wss:// URL (Tailscale Serve uses wss://<magicdns>).")
+            Text("直连模式需要 ws:// 或 wss:// URL（Tailscale Serve 使用 wss://<magicdns>）。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.leading, self.remoteLabelWidth + 10)
@@ -307,9 +307,9 @@ struct GeneralSettings: View {
 
     private var controlStatusLine: String {
         switch ControlChannel.shared.state {
-        case .connected: "Connected"
-        case .connecting: "Connecting…"
-        case .disconnected: "Disconnected"
+        case .connected: "已连接"
+        case .connecting: "连接中…"
+        case .disconnected: "已断开"
         case let .degraded(msg): msg
         }
     }
@@ -320,11 +320,11 @@ struct GeneralSettings: View {
         case .idle:
             EmptyView()
         case .checking:
-            Text("Testing…")
+            Text("测试中…")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .ok:
-            Label("Ready", systemImage: "checkmark.circle.fill")
+            Label("就绪", systemImage: "checkmark.circle.fill")
                 .font(.caption)
                 .foregroundStyle(.green)
         case let .failed(message):
@@ -355,11 +355,11 @@ struct GeneralSettings: View {
                let required = self.gatewayStatus.requiredGateway,
                gatewayVersion != required
             {
-                Text("Installed: \(gatewayVersion) · Required: \(required)")
+                Text("已安装: \(gatewayVersion) · 需要: \(required)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if let gatewayVersion = self.gatewayStatus.gatewayVersion {
-                Text("Gateway \(gatewayVersion) detected")
+                Text("检测到网关 \(gatewayVersion)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -371,21 +371,21 @@ struct GeneralSettings: View {
             }
 
             if case let .attachedExisting(details) = self.gatewayManager.status {
-                Text(details ?? "Using existing gateway instance")
+                Text(details ?? "使用现有网关实例")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             if let failure = self.gatewayManager.lastFailureReason {
-                Text("Last failure: \(failure)")
+                Text("最近失败: \(failure)")
                     .font(.caption)
                     .foregroundStyle(.red)
             }
 
-            Button("Recheck") { self.refreshGatewayStatus() }
+            Button("重新检查") { self.refreshGatewayStatus() }
                 .buttonStyle(.bordered)
 
-            Text("Gateway auto-starts in local mode via launchd (\(gatewayLaunchdLabel)).")
+            Text("网关在本地模式下通过 launchd (\(gatewayLaunchdLabel)) 自动启动。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
@@ -470,7 +470,7 @@ struct GeneralSettings: View {
                     if self.healthStore.isRefreshing {
                         ProgressView().controlSize(.small)
                     } else {
-                        Label("Run Health Check", systemImage: "arrow.clockwise")
+                        Label("运行健康检查", systemImage: "arrow.clockwise")
                     }
                 }
                 .disabled(self.healthStore.isRefreshing)
@@ -480,7 +480,7 @@ struct GeneralSettings: View {
                 Button {
                     self.revealLogs()
                 } label: {
-                    Label("Reveal Logs", systemImage: "doc.text.magnifyingglass")
+                    Label("显示日志", systemImage: "doc.text.magnifyingglass")
                 }
             }
         }
@@ -517,12 +517,12 @@ extension GeneralSettings {
             }
 
             HStack(spacing: 10) {
-                Button("Retry now") {
+                Button("立即重试") {
                     Task { await HealthStore.shared.refresh(onDemand: true) }
                 }
                 .disabled(self.healthStore.isRefreshing)
 
-                Button("Open logs") { self.revealLogs() }
+                Button("打开日志") { self.revealLogs() }
                     .buttonStyle(.link)
                     .foregroundStyle(.secondary)
             }
@@ -657,13 +657,13 @@ extension GeneralSettings {
         }
 
         let alert = NSAlert()
-        alert.messageText = "Log file not found"
+        alert.messageText = "未找到日志文件"
         alert.informativeText = """
-        Looked for openclaw logs in /tmp/openclaw/.
-        Run a health check or send a message to generate activity, then try again.
+        在 /tmp/openclaw/ 中查找 openclaw 日志。
+        运行健康检查或发送消息以生成活动，然后重试。
         """
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "好")
         alert.runModal()
     }
 

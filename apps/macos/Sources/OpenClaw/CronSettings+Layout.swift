@@ -32,12 +32,12 @@ extension CronSettings {
                     }
                 })
         }
-        .alert("Delete cron job?", isPresented: Binding(
+        .alert("删除定时任务？", isPresented: Binding(
             get: { self.confirmDelete != nil },
             set: { if !$0 { self.confirmDelete = nil } }))
         {
-            Button("Cancel", role: .cancel) { self.confirmDelete = nil }
-            Button("Delete", role: .destructive) {
+            Button("取消", role: .cancel) { self.confirmDelete = nil }
+            Button("删除", role: .destructive) {
                 if let job = self.confirmDelete {
                     Task { await self.store.removeJob(id: job.id) }
                 }
@@ -61,13 +61,12 @@ extension CronSettings {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
-                        Text("Cron scheduler is disabled")
+                        Text("定时任务调度器已禁用")
                             .font(.headline)
                         Spacer()
                     }
                     Text(
-                        "Jobs are saved, but they will not run automatically until `cron.enabled` is set to `true` " +
-                            "and the Gateway restarts.")
+                        "任务已保存，但在 `cron.enabled` 设置为 `true` 并重启网关之前不会自动运行。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -91,9 +90,9 @@ extension CronSettings {
     var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Cron")
+                Text("定时任务")
                     .font(.headline)
-                Text("Manage Gateway cron jobs (main session vs isolated runs) and inspect run history.")
+                Text("管理网关定时任务（主会话与隔离运行）并检查运行历史。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -103,7 +102,7 @@ extension CronSettings {
                 Button {
                     Task { await self.store.refreshJobs() }
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label("刷新", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
                 .disabled(self.store.isLoadingJobs)
@@ -113,7 +112,7 @@ extension CronSettings {
                     self.editingJob = nil
                     self.showEditor = true
                 } label: {
-                    Label("New Job", systemImage: "plus")
+                    Label("新建任务", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -124,7 +123,7 @@ extension CronSettings {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 if let err = self.store.lastError {
-                    Text("Error: \(err)")
+                    Text("错误: \(err)")
                         .font(.footnote)
                         .foregroundStyle(.red)
                 } else if let msg = self.store.statusMessage {
@@ -165,10 +164,10 @@ extension CronSettings {
             }
         } else {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Select a job to inspect details and run history.")
+                Text("选择一个任务以查看详情和运行历史。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                Text("Tip: use ‘New Job’ to add one, or enable cron in your gateway config.")
+                Text("提示：使用「新建任务」添加任务，或在网关配置中启用 cron。")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }

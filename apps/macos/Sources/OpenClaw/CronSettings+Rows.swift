@@ -10,11 +10,11 @@ extension CronSettings {
                     .truncationMode(.middle)
                 Spacer()
                 if !job.enabled {
-                    StatusPill(text: "disabled", tint: .secondary)
+                    StatusPill(text: "已禁用", tint: .secondary)
                 } else if let next = job.nextRunDate {
                     StatusPill(text: self.nextRunLabel(next), tint: .secondary)
                 } else {
-                    StatusPill(text: "no next run", tint: .secondary)
+                    StatusPill(text: "无下次运行", tint: .secondary)
                 }
             }
             HStack(spacing: 6) {
@@ -33,23 +33,23 @@ extension CronSettings {
 
     @ViewBuilder
     func jobContextMenu(_ job: CronJob) -> some View {
-        Button("Run now") { Task { await self.store.runJob(id: job.id, force: true) } }
+        Button("立即运行") { Task { await self.store.runJob(id: job.id, force: true) } }
         if job.sessionTarget == .isolated {
-            Button("Open transcript") {
+            Button("打开记录") {
                 WebChatManager.shared.show(sessionKey: "cron:\(job.id)")
             }
         }
         Divider()
-        Button(job.enabled ? "Disable" : "Enable") {
+        Button(job.enabled ? "禁用" : "启用") {
             Task { await self.store.setJobEnabled(id: job.id, enabled: !job.enabled) }
         }
-        Button("Edit…") {
+        Button("编辑…") {
             self.editingJob = job
             self.editorError = nil
             self.showEditor = true
         }
         Divider()
-        Button("Delete…", role: .destructive) {
+        Button("删除…", role: .destructive) {
             self.confirmDelete = job
         }
     }
@@ -68,20 +68,20 @@ extension CronSettings {
             }
             Spacer()
             HStack(spacing: 8) {
-                Toggle("Enabled", isOn: Binding(
+                Toggle("启用", isOn: Binding(
                     get: { job.enabled },
                     set: { enabled in Task { await self.store.setJobEnabled(id: job.id, enabled: enabled) } }))
                     .toggleStyle(.switch)
                     .labelsHidden()
-                Button("Run") { Task { await self.store.runJob(id: job.id, force: true) } }
+                Button("运行") { Task { await self.store.runJob(id: job.id, force: true) } }
                     .buttonStyle(.borderedProminent)
                 if job.sessionTarget == .isolated {
-                    Button("Transcript") {
+                    Button("记录") {
                         WebChatManager.shared.show(sessionKey: "cron:\(job.id)")
                     }
                     .buttonStyle(.bordered)
                 }
-                Button("Edit") {
+                Button("编辑") {
                     self.editingJob = job
                     self.editorError = nil
                     self.showEditor = true
@@ -93,26 +93,26 @@ extension CronSettings {
 
     func detailCard(_ job: CronJob) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            LabeledContent("Schedule") { Text(self.scheduleSummary(job.schedule)).font(.callout) }
+            LabeledContent("计划") { Text(self.scheduleSummary(job.schedule)).font(.callout) }
             if case .at = job.schedule, job.deleteAfterRun == true {
-                LabeledContent("Auto-delete") { Text("after success") }
+                LabeledContent("自动删除") { Text("成功后删除") }
             }
             if let desc = job.description, !desc.isEmpty {
-                LabeledContent("Description") { Text(desc).font(.callout) }
+                LabeledContent("描述") { Text(desc).font(.callout) }
             }
             if let agentId = job.agentId, !agentId.isEmpty {
                 LabeledContent("Agent") { Text(agentId) }
             }
-            LabeledContent("Session") { Text(job.sessionTarget.rawValue) }
-            LabeledContent("Wake") { Text(job.wakeMode.rawValue) }
-            LabeledContent("Next run") {
+            LabeledContent("会话") { Text(job.sessionTarget.rawValue) }
+            LabeledContent("唤醒") { Text(job.wakeMode.rawValue) }
+            LabeledContent("下次运行") {
                 if let date = job.nextRunDate {
                     Text(date.formatted(date: .abbreviated, time: .standard))
                 } else {
                     Text("—").foregroundStyle(.secondary)
                 }
             }
-            LabeledContent("Last run") {
+            LabeledContent("上次运行") {
                 if let date = job.lastRunDate {
                     Text("\(date.formatted(date: .abbreviated, time: .standard)) · \(relativeAge(from: date))")
                 } else {
@@ -120,7 +120,7 @@ extension CronSettings {
                 }
             }
             if let status = job.state.lastStatus {
-                LabeledContent("Last status") { Text(status) }
+                LabeledContent("上次状态") { Text(status) }
             }
             if let err = job.state.lastError, !err.isEmpty {
                 Text(err)
@@ -139,13 +139,13 @@ extension CronSettings {
     func runHistoryCard(_ job: CronJob) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Run history")
+                Text("运行历史")
                     .font(.headline)
                 Spacer()
                 Button {
                     Task { await self.store.refreshRuns(jobId: job.id) }
                 } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    Label("刷新", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.bordered)
                 .disabled(self.store.isLoadingRuns)
@@ -156,7 +156,7 @@ extension CronSettings {
             }
 
             if self.store.runEntries.isEmpty {
-                Text("No run log entries yet.")
+                Text("暂无运行日志。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
@@ -176,7 +176,7 @@ extension CronSettings {
     func runRow(_ entry: CronRunLogEntry) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                StatusPill(text: entry.status ?? "unknown", tint: self.statusTint(entry.status))
+                StatusPill(text: entry.status ?? "未知", tint: self.statusTint(entry.status))
                 Text(entry.date.formatted(date: .abbreviated, time: .standard))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -207,7 +207,7 @@ extension CronSettings {
 
     func payloadSummary(_ payload: CronPayload) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Payload")
+            Text("负载")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             switch payload {

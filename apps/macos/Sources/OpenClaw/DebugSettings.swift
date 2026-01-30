@@ -73,19 +73,19 @@ struct DebugSettings: View {
         }
         .alert(item: self.$pendingKill) { listener in
             Alert(
-                title: Text("Kill \(listener.command) (\(listener.pid))?"),
-                message: Text("This process looks expected for the current mode. Kill anyway?"),
-                primaryButton: .destructive(Text("Kill")) {
+                title: Text("终止 \(listener.command) (\(listener.pid))？"),
+                message: Text("此进程在当前模式下是预期的。仍要终止吗？"),
+                primaryButton: .destructive(Text("终止")) {
                     Task { await self.killConfirmed(listener.pid) }
                 },
-                secondaryButton: .cancel())
+                secondaryButton: .cancel(Text("取消")))
         }
     }
 
     private var launchdSection: some View {
-        GroupBox("Gateway startup") {
+        GroupBox("网关启动") {
             VStack(alignment: .leading, spacing: 8) {
-                Toggle("Attach only (skip launchd install)", isOn: self.$launchAgentWriteDisabled)
+                Toggle("仅附加（跳过 launchd 安装）", isOn: self.$launchAgentWriteDisabled)
                     .onChange(of: self.launchAgentWriteDisabled) { _, newValue in
                         self.launchAgentWriteError = GatewayLaunchAgentManager.setLaunchAgentWriteDisabled(newValue)
                         if self.launchAgentWriteError != nil {
@@ -103,8 +103,8 @@ struct DebugSettings: View {
                     }
 
                 Text(
-                    "When enabled, OpenClaw won't install or manage \(gatewayLaunchdLabel). " +
-                        "It will only attach to an existing Gateway.")
+                    "启用后，OpenClaw 将不会安装或管理 \(gatewayLaunchdLabel)。" +
+                        "它只会附加到现有的网关。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -119,9 +119,9 @@ struct DebugSettings: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Debug")
+            Text("调试")
                 .font(.title3.weight(.semibold))
-            Text("Tools for diagnosing local issues (Gateway, ports, logs, Canvas).")
+            Text("用于诊断本地问题的工具（网关、端口、日志、Canvas）。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -134,10 +134,10 @@ struct DebugSettings: View {
     }
 
     private var appInfoSection: some View {
-        GroupBox("App") {
+        GroupBox("应用") {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 10) {
                 GridRow {
-                    self.gridLabel("Health")
+                    self.gridLabel("健康状态")
                     HStack(spacing: 8) {
                         Circle().fill(self.healthStore.state.tint).frame(width: 10, height: 10)
                         Text(self.healthStore.summaryLine)
@@ -147,7 +147,7 @@ struct DebugSettings: View {
                 GridRow {
                     self.gridLabel("CLI")
                     let loc = CLIInstaller.installedLocation()
-                    Text(loc ?? "missing")
+                    Text(loc ?? "缺失")
                         .font(.caption.monospaced())
                         .foregroundStyle(loc == nil ? Color.red : Color.secondary)
                         .textSelection(.enabled)
@@ -159,7 +159,7 @@ struct DebugSettings: View {
                     Text("\(ProcessInfo.processInfo.processIdentifier)")
                 }
                 GridRow {
-                    self.gridLabel("Binary path")
+                    self.gridLabel("二进制路径")
                     Text(Bundle.main.bundlePath)
                         .font(.caption2.monospaced())
                         .foregroundStyle(.secondary)
@@ -172,11 +172,11 @@ struct DebugSettings: View {
     }
 
     private var gatewaySection: some View {
-        GroupBox("Gateway") {
+        GroupBox("网关") {
             VStack(alignment: .leading, spacing: 10) {
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 10) {
                     GridRow {
-                        self.gridLabel("Status")
+                        self.gridLabel("状态")
                         HStack(spacing: 8) {
                             Text(self.gatewayManager.status.label)
                         }
@@ -186,7 +186,7 @@ struct DebugSettings: View {
 
                 let key = DeepLinkHandler.currentKey()
                 HStack(spacing: 8) {
-                    Text("Key")
+                    Text("密钥")
                         .foregroundStyle(.secondary)
                         .frame(width: self.labelColumnWidth, alignment: .leading)
                     Text(key)
@@ -195,12 +195,12 @@ struct DebugSettings: View {
                         .textSelection(.enabled)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Button("Copy") {
+                    Button("复制") {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(key, forType: .string)
                     }
                     .buttonStyle(.bordered)
-                    Button("Copy sample URL") {
+                    Button("复制示例 URL") {
                         let msg = "Hello from deep link"
                         let encoded = msg.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? msg
                         let url = "openclaw://agent?message=\(encoded)&key=\(key)"
@@ -211,12 +211,12 @@ struct DebugSettings: View {
                     Spacer(minLength: 0)
                 }
 
-                Text("Deep links (openclaw://…) are always enabled; the key controls unattended runs.")
+                Text("深度链接 (openclaw://…) 始终启用；密钥控制无人值守运行。")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Stdout / stderr")
+                    Text("标准输出 / 标准错误")
                         .font(.caption.weight(.semibold))
                     ScrollView {
                         Text(self.gatewayManager.log.isEmpty ? "—" : self.gatewayManager.log)
@@ -229,9 +229,9 @@ struct DebugSettings: View {
 
                     HStack(spacing: 8) {
                         if self.canRestartGateway {
-                            Button("Restart Gateway") { DebugActions.restartGateway() }
+                            Button("重启网关") { DebugActions.restartGateway() }
                         }
-                        Button("Clear log") { GatewayProcessManager.shared.clearLog() }
+                        Button("清除日志") { GatewayProcessManager.shared.clearLog() }
                         Spacer(minLength: 0)
                     }
                     .buttonStyle(.bordered)
@@ -241,13 +241,13 @@ struct DebugSettings: View {
     }
 
     private var logsSection: some View {
-        GroupBox("Logs") {
+        GroupBox("日志") {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 10) {
                 GridRow {
-                    self.gridLabel("Pino log")
+                    self.gridLabel("Pino 日志")
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
-                            Button("Open") { DebugActions.openLog() }
+                            Button("打开") { DebugActions.openLog() }
                                 .buttonStyle(.bordered)
                             Text(DebugActions.pinoLogPath())
                                 .font(.caption2.monospaced())
@@ -260,29 +260,29 @@ struct DebugSettings: View {
                 }
 
                 GridRow {
-                    self.gridLabel("App logging")
+                    self.gridLabel("应用日志")
                     VStack(alignment: .leading, spacing: 8) {
-                        Picker("Verbosity", selection: self.$appLogLevelRaw) {
+                        Picker("详细程度", selection: self.$appLogLevelRaw) {
                             ForEach(AppLogLevel.allCases) { level in
                                 Text(level.title).tag(level.rawValue)
                             }
                         }
                         .pickerStyle(.menu)
                         .labelsHidden()
-                        .help("Controls the macOS app log verbosity.")
+                        .help("控制 macOS 应用的日志详细程度。")
 
-                        Toggle("Write rolling diagnostics log (JSONL)", isOn: self.$diagnosticsFileLogEnabled)
+                        Toggle("写入滚动诊断日志 (JSONL)", isOn: self.$diagnosticsFileLogEnabled)
                             .toggleStyle(.checkbox)
                             .help(
-                                "Writes a rotating, local-only log under ~/Library/Logs/OpenClaw/. " +
-                                    "Enable only while actively debugging.")
+                                "在 ~/Library/Logs/OpenClaw/ 下写入一个滚动的本地日志。" +
+                                    "仅在主动调试时启用。")
 
                         HStack(spacing: 8) {
-                            Button("Open folder") {
+                            Button("打开文件夹") {
                                 NSWorkspace.shared.open(DiagnosticsFileLog.logDirectoryURL())
                             }
                             .buttonStyle(.bordered)
-                            Button("Clear") {
+                            Button("清除") {
                                 Task { try? await DiagnosticsFileLog.shared.clear() }
                             }
                             .buttonStyle(.bordered)
@@ -300,19 +300,19 @@ struct DebugSettings: View {
     }
 
     private var portsSection: some View {
-        GroupBox("Ports") {
+        GroupBox("端口") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Text("Port diagnostics")
+                    Text("端口诊断")
                         .font(.caption.weight(.semibold))
                     if self.portCheckInFlight { ProgressView().controlSize(.small) }
                     Spacer()
-                    Button("Check gateway ports") {
+                    Button("检查网关端口") {
                         Task { await self.runPortCheck() }
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(self.portCheckInFlight)
-                    Button("Reset SSH tunnel") {
+                    Button("重置 SSH 隧道") {
                         Task { await self.resetGatewayTunnel() }
                     }
                     .buttonStyle(.bordered)
@@ -333,13 +333,13 @@ struct DebugSettings: View {
                 }
 
                 if self.portReports.isEmpty, !self.portCheckInFlight {
-                    Text("Check which process owns \(GatewayEnvironment.gatewayPort()) and suggest fixes.")
+                    Text("检查哪个进程占用了端口 \(GatewayEnvironment.gatewayPort()) 并建议修复方案。")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(self.portReports) { report in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Port \(report.port)")
+                            Text("端口 \(report.port)")
                                 .font(.footnote.weight(.semibold))
                             Text(report.summary)
                                 .font(.caption)
@@ -353,7 +353,7 @@ struct DebugSettings: View {
                                             .foregroundStyle(listener.expected ? .secondary : Color.red)
                                             .lineLimit(1)
                                         Spacer()
-                                        Button("Kill") {
+                                        Button("终止") {
                                             self.requestKill(listener)
                                         }
                                         .buttonStyle(.bordered)
@@ -379,19 +379,19 @@ struct DebugSettings: View {
     }
 
     private var pathsSection: some View {
-        GroupBox("Paths") {
+        GroupBox("路径") {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("OpenClaw project root")
+                    Text("OpenClaw 项目根目录")
                         .font(.caption.weight(.semibold))
                     HStack(spacing: 8) {
-                        TextField("Path to openclaw repo", text: self.$gatewayRootInput)
+                        TextField("openclaw 仓库路径", text: self.$gatewayRootInput)
                             .textFieldStyle(.roundedBorder)
                             .font(.caption.monospaced())
                             .onSubmit { self.saveRelayRoot() }
-                        Button("Save") { self.saveRelayRoot() }
+                        Button("保存") { self.saveRelayRoot() }
                             .buttonStyle(.borderedProminent)
-                        Button("Reset") {
+                        Button("重置") {
                             let def = FileManager().homeDirectoryForCurrentUser
                                 .appendingPathComponent("Projects/openclaw").path
                             self.gatewayRootInput = def
@@ -399,7 +399,7 @@ struct DebugSettings: View {
                         }
                         .buttonStyle(.bordered)
                     }
-                    Text("Used for pnpm/node fallback and PATH population when launching the gateway.")
+                    Text("用于启动网关时的 pnpm/node 回退和 PATH 设置。")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -408,14 +408,14 @@ struct DebugSettings: View {
 
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 10) {
                     GridRow {
-                        self.gridLabel("Session store")
+                        self.gridLabel("会话存储")
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
-                                TextField("Path", text: self.$sessionStorePath)
+                                TextField("路径", text: self.$sessionStorePath)
                                     .textFieldStyle(.roundedBorder)
                                     .font(.caption.monospaced())
                                     .frame(width: 360)
-                                Button("Save") { self.saveSessionStorePath() }
+                                Button("保存") { self.saveSessionStorePath() }
                                     .buttonStyle(.borderedProminent)
                             }
                             if let sessionStoreSaveError {
@@ -423,14 +423,14 @@ struct DebugSettings: View {
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             } else {
-                                Text("Used by the CLI session loader; stored in ~/.openclaw/openclaw.json.")
+                                Text("用于 CLI 会话加载器；存储在 ~/.openclaw/openclaw.json。")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
                         }
                     }
                     GridRow {
-                        self.gridLabel("Model catalog")
+                        self.gridLabel("模型目录")
                         VStack(alignment: .leading, spacing: 6) {
                             Text(self.modelCatalogPath)
                                 .font(.caption.monospaced())
@@ -440,7 +440,7 @@ struct DebugSettings: View {
                                 Button {
                                     self.chooseCatalogFile()
                                 } label: {
-                                    Label("Choose models.generated.ts…", systemImage: "folder")
+                                    Label("选择 models.generated.ts…", systemImage: "folder")
                                 }
                                 .buttonStyle(.bordered)
 
@@ -448,7 +448,7 @@ struct DebugSettings: View {
                                     Task { await self.reloadModels() }
                                 } label: {
                                     Label(
-                                        self.modelsLoading ? "Reloading…" : "Reload models",
+                                        self.modelsLoading ? "重新加载中…" : "重新加载模型",
                                         systemImage: "arrow.clockwise")
                                 }
                                 .buttonStyle(.bordered)
@@ -459,11 +459,11 @@ struct DebugSettings: View {
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             } else if let modelsCount {
-                                Text("Loaded \(modelsCount) models")
+                                Text("已加载 \(modelsCount) 个模型")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
-                            Text("Local fallback for model picker when gateway models.list is unavailable.")
+                            Text("当网关 models.list 不可用时的本地模型选择器回退。")
                                 .font(.footnote)
                                 .foregroundStyle(.tertiary)
                         }
@@ -474,15 +474,15 @@ struct DebugSettings: View {
     }
 
     private var quickActionsSection: some View {
-        GroupBox("Quick actions") {
+        GroupBox("快捷操作") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Button("Send Test Notification") {
+                    Button("发送测试通知") {
                         Task { await DebugActions.sendTestNotification() }
                     }
                     .buttonStyle(.bordered)
 
-                    Button("Open Agent Events") {
+                    Button("打开 Agent 事件") {
                         DebugActions.openAgentEventsWindow()
                     }
                     .buttonStyle(.borderedProminent)
@@ -495,7 +495,7 @@ struct DebugSettings: View {
                         Task { await self.sendVoiceDebug() }
                     } label: {
                         Label(
-                            self.debugSendInFlight ? "Sending debug voice…" : "Send debug voice",
+                            self.debugSendInFlight ? "正在发送调试语音…" : "发送调试语音",
                             systemImage: self.debugSendInFlight ? "bolt.horizontal.circle" : "waveform")
                     }
                     .buttonStyle(.borderedProminent)
@@ -513,8 +513,8 @@ struct DebugSettings: View {
                         } else {
                             Text(
                                 """
-                                Uses the Voice Wake path: forwards over SSH when configured,
-                                otherwise runs locally via rpc.
+                                使用语音唤醒路径：配置时通过 SSH 转发，
+                                否则通过 rpc 本地运行。
                                 """)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -524,7 +524,7 @@ struct DebugSettings: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(
-                        "Note: macOS may require restarting OpenClaw after enabling Accessibility or Screen Recording.")
+                        "注意：macOS 可能需要在启用辅助功能或屏幕录制后重启 OpenClaw。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -532,16 +532,16 @@ struct DebugSettings: View {
                     Button {
                         LaunchdManager.startOpenClaw()
                     } label: {
-                        Label("Restart OpenClaw", systemImage: "arrow.counterclockwise")
+                        Label("重启 OpenClaw", systemImage: "arrow.counterclockwise")
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 }
 
                 HStack(spacing: 8) {
-                    Button("Restart app") { DebugActions.restartApp() }
-                    Button("Restart onboarding") { DebugActions.restartOnboarding() }
-                    Button("Reveal app in Finder") { self.revealApp() }
+                    Button("重启应用") { DebugActions.restartApp() }
+                    Button("重新开始引导") { DebugActions.restartOnboarding() }
+                    Button("在访达中显示应用") { self.revealApp() }
                     Spacer(minLength: 0)
                 }
                 .buttonStyle(.bordered)
@@ -552,26 +552,26 @@ struct DebugSettings: View {
     private var canvasSection: some View {
         GroupBox("Canvas") {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Enable/disable Canvas in General settings.")
+                Text("在通用设置中启用/禁用 Canvas。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 8) {
-                    TextField("Session", text: self.$canvasSessionKey)
+                    TextField("会话", text: self.$canvasSessionKey)
                         .textFieldStyle(.roundedBorder)
                         .font(.caption.monospaced())
                         .frame(width: 160)
-                    Button("Show panel") {
+                    Button("显示面板") {
                         Task { await self.canvasPresent() }
                     }
                     .buttonStyle(.borderedProminent)
-                    Button("Hide panel") {
+                    Button("隐藏面板") {
                         CanvasManager.shared.hideAll()
                         self.canvasStatus = "hidden"
                         self.canvasError = nil
                     }
                     .buttonStyle(.bordered)
-                    Button("Write sample page") {
+                    Button("写入示例页面") {
                         Task { await self.canvasWriteSamplePage() }
                     }
                     .buttonStyle(.bordered)
@@ -579,15 +579,15 @@ struct DebugSettings: View {
                 }
 
                 HStack(spacing: 8) {
-                    TextField("Eval JS", text: self.$canvasEvalJS)
+                    TextField("执行 JS", text: self.$canvasEvalJS)
                         .textFieldStyle(.roundedBorder)
                         .font(.caption.monospaced())
                         .frame(maxWidth: 520)
-                    Button("Eval") {
+                    Button("执行") {
                         Task { await self.canvasEval() }
                     }
                     .buttonStyle(.bordered)
-                    Button("Snapshot") {
+                    Button("快照") {
                         Task { await self.canvasSnapshot() }
                     }
                     .buttonStyle(.bordered)
@@ -610,13 +610,13 @@ struct DebugSettings: View {
                 }
                 if let canvasSnapshotPath {
                     HStack(spacing: 8) {
-                        Text("snapshot → \(canvasSnapshotPath)")
+                        Text("快照 → \(canvasSnapshotPath)")
                             .font(.caption2.monospaced())
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .textSelection(.enabled)
-                        Button("Reveal") {
+                        Button("显示") {
                             NSWorkspace.shared
                                 .activateFileViewerSelecting([URL(fileURLWithPath: canvasSnapshotPath)])
                         }
@@ -629,7 +629,7 @@ struct DebugSettings: View {
                         .font(.caption2)
                         .foregroundStyle(.red)
                 } else {
-                    Text("Tip: the session directory is returned by “Show panel”.")
+                    Text("提示：会话目录由「显示面板」返回。")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -638,10 +638,10 @@ struct DebugSettings: View {
     }
 
     private var experimentsSection: some View {
-        GroupBox("Experiments") {
+        GroupBox("实验性功能") {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 10) {
                 GridRow {
-                    self.gridLabel("Icon override")
+                    self.gridLabel("图标覆盖")
                     Picker("", selection: self.bindingOverride) {
                         ForEach(IconOverrideSelection.allCases) { option in
                             Text(option.label).tag(option.rawValue)
@@ -651,8 +651,8 @@ struct DebugSettings: View {
                     .frame(maxWidth: 280, alignment: .leading)
                 }
                 GridRow {
-                    self.gridLabel("Chat")
-                    Text("Native SwiftUI")
+                    self.gridLabel("聊天")
+                    Text("原生 SwiftUI")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -698,16 +698,16 @@ struct DebugSettings: View {
         let result = await DebugActions.killProcess(Int(pid))
         switch result {
         case .success:
-            self.portKillStatus = "Sent kill to \(pid)."
+            self.portKillStatus = "已发送终止信号到 \(pid)。"
             await self.runPortCheck()
         case let .failure(err):
-            self.portKillStatus = "Kill \(pid) failed: \(err.localizedDescription)"
+            self.portKillStatus = "终止 \(pid) 失败: \(err.localizedDescription)"
         }
     }
 
     private func chooseCatalogFile() {
         let panel = NSOpenPanel()
-        panel.title = "Select models.generated.ts"
+        panel.title = "选择 models.generated.ts"
         let tsType = UTType(filenameExtension: "ts")
             ?? UTType(tag: "ts", tagClass: .filenameExtension, conformingTo: .sourceCode)
             ?? .item
