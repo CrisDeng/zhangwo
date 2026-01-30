@@ -1,0 +1,37 @@
+{
+  "name": "qqbot",
+  "version": "1.2.3",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "clawdbot": {
+    "extensions": ["./index.ts"]
+  },
+  "moltbot": {
+    "extensions": ["./index.ts"]
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "scripts": {
+    "build": "tsc || true",
+    "dev": "tsc --watch",
+    "prepack": "npm install --omit=dev"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "bundledDependencies": [
+    "ws"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "clawdbot": "*",
+    "moltbot": "*",
+    "openclaw": "*"
+  }
+}
