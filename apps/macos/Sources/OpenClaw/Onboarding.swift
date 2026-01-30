@@ -111,6 +111,7 @@ struct OnboardingView: View {
     let anthropicAuthPageIndex = 2
     let wizardPageIndex = 3
     let qqChannelPageIndex = 7
+    let modelConfigPageIndex = 10
     let onboardingChatPageIndex = 8
 
     static let clipboardPoll: AnyPublisher<Date, Never> = {
@@ -131,11 +132,11 @@ struct OnboardingView: View {
         case .remote:
             // Remote setup doesn't need local gateway/CLI/workspace setup pages,
             // and WhatsApp/Telegram setup is optional.
-            showOnboardingChat ? [0, 1, 5, 7, 8, 9] : [0, 1, 5, 7, 9]
+            showOnboardingChat ? [0, 1, 5, 7, 10, 8, 9] : [0, 1, 5, 7, 10, 9]
         case .unconfigured:
-            showOnboardingChat ? [0, 1, 7, 8, 9] : [0, 1, 7, 9]
+            showOnboardingChat ? [0, 1, 7, 10, 8, 9] : [0, 1, 7, 10, 9]
         case .local:
-            showOnboardingChat ? [0, 1, 3, 5, 7, 8, 9] : [0, 1, 3, 5, 7, 9]
+            showOnboardingChat ? [0, 1, 3, 5, 7, 10, 8, 9] : [0, 1, 3, 5, 7, 10, 9]
         }
     }
 

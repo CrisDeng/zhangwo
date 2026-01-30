@@ -27,6 +27,8 @@ extension OnboardingView {
             self.onboardingChatPage()
         case 9:
             self.readyPage()
+        case 10:
+            self.modelConfigPage()
         default:
             EmptyView()
         }
