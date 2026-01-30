@@ -196,7 +196,7 @@ enum GatewayEnvironment {
         {
             let port = self.gatewayPort()
             let bind = self.preferredGatewayBind() ?? "loopback"
-            let cmd = [bundledNode, bundledEntry, "gateway-daemon", "--port", "\(port)", "--bind", bind]
+            let cmd = [bundledNode, bundledEntry, "gateway", "run", "--port", "\(port)", "--bind", bind]
             let expectedString = self.expectedGatewayVersionString()
             let status = GatewayEnvironmentStatus(
                 kind: .ok,
@@ -223,7 +223,7 @@ enum GatewayEnvironment {
         let port = self.gatewayPort()
         if let gatewayBin {
             let bind = self.preferredGatewayBind() ?? "loopback"
-            let cmd = [gatewayBin, "gateway-daemon", "--port", "\(port)", "--bind", bind]
+            let cmd = [gatewayBin, "gateway", "run", "--port", "\(port)", "--bind", bind]
             return GatewayCommandResolution(status: status, command: cmd)
         }
 
@@ -231,7 +231,7 @@ enum GatewayEnvironment {
            case let .success(resolvedRuntime) = runtime
         {
             let bind = self.preferredGatewayBind() ?? "loopback"
-            let cmd = [resolvedRuntime.path, entry, "gateway-daemon", "--port", "\(port)", "--bind", bind]
+            let cmd = [resolvedRuntime.path, entry, "gateway", "run", "--port", "\(port)", "--bind", bind]
             return GatewayCommandResolution(status: status, command: cmd)
         }
 

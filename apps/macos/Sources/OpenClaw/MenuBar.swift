@@ -34,6 +34,8 @@ struct OpenClawApp: App {
     init() {
         OpenClawLogging.bootstrapIfNeeded()
         Self.applyAttachOnlyOverrideIfNeeded()
+        // Ensure default gateway config exists (including auto-generated token)
+        OpenClawConfigFile.ensureDefaultGatewayConfig()
         _state = State(initialValue: AppStateStore.shared)
     }
 

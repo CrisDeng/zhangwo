@@ -310,6 +310,13 @@ enum CommandResolver {
             return ssh
         }
 
+        // Prefer bundled runtime if available (ensures DMG-distributed app works standalone)
+        if let bundledNode = self.bundledNodePath(),
+           let bundledEntry = self.bundledCLIEntrypoint() ?? self.bundledCLIDistEntrypoint()
+        {
+            return [bundledNode, bundledEntry, subcommand] + extraArgs
+        }
+
         let runtimeResult = self.runtimeResolution(searchPaths: searchPaths)
 
         switch runtimeResult {

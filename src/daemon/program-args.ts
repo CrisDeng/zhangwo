@@ -24,6 +24,20 @@ async function resolveCliEntrypointPathForService(): Promise<string> {
 
   const normalized = path.resolve(argv1);
   const resolvedPath = await resolveRealpathSafe(normalized);
+
+  // Handle bundled runtime (openclaw.mjs in bundle root, not dist/)
+  // This supports macOS DMG-distributed apps where the CLI is bundled at:
+  // .../OpenClaw.app/Contents/Resources/runtime/openclaw/openclaw.mjs
+  const basename = path.basename(resolvedPath).toLowerCase();
+  if (basename === "openclaw.mjs") {
+    try {
+      await fs.access(resolvedPath);
+      return resolvedPath;
+    } catch {
+      // Fall through to try other paths
+    }
+  }
+
   const looksLikeDist = /[/\\]dist[/\\].+\.(cjs|js|mjs)$/.test(resolvedPath);
   if (looksLikeDist) {
     await fs.access(resolvedPath);

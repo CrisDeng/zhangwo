@@ -214,4 +214,49 @@ enum OpenClawConfigFile {
         }
         return nil
     }
+
+    /// Ensures a default gateway configuration exists with a randomly generated token.
+    /// Call this at app startup to ensure the gateway can authenticate.
+    static func ensureDefaultGatewayConfig() {
+        var root = self.loadDict()
+        var gateway = root["gateway"] as? [String: Any] ?? [:]
+        var auth = gateway["auth"] as? [String: Any] ?? [:]
+        var needsSave = false
+
+        // Ensure gateway.mode is set
+        if gateway["mode"] == nil {
+            gateway["mode"] = "local"
+            needsSave = true
+            self.logger.info("gateway config: set default mode=local")
+        }
+
+        // Ensure gateway.auth.mode is set
+        if auth["mode"] == nil {
+            auth["mode"] = "token"
+            needsSave = true
+            self.logger.info("gateway config: set default auth.mode=token")
+        }
+
+        // Ensure gateway.auth.token is set with a random value
+        if auth["token"] == nil {
+            let token = Self.generateRandomToken()
+            auth["token"] = token
+            needsSave = true
+            self.logger.info("gateway config: generated default auth.token")
+        }
+
+        if needsSave {
+            gateway["auth"] = auth
+            root["gateway"] = gateway
+            self.saveDict(root)
+            self.logger.info("gateway config: saved default configuration")
+        }
+    }
+
+    /// Generates a random hex token for gateway authentication.
+    private static func generateRandomToken() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
 }

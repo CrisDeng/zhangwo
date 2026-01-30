@@ -39,6 +39,8 @@ final class CLIInstallPrompter {
         guard !self.isPrompting else { return false }
         guard AppStateStore.shared.onboardingSeen else { return false }
         guard AppStateStore.shared.connectionMode == .local else { return false }
+        // Skip prompt if bundled runtime is available (DMG-distributed app is self-contained)
+        guard !CommandResolver.hasBundledRuntime() else { return false }
         guard CLIInstaller.installedLocation() == nil else { return false }
         guard let version = Self.appVersion() else { return false }
         let lastPrompt = UserDefaults.standard.string(forKey: cliInstallPromptedVersionKey)
