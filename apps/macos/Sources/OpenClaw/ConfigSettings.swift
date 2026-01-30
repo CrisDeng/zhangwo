@@ -150,7 +150,7 @@ extension ConfigSettings {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
                 if self.sections.isEmpty {
-                    Text("No config sections available.")
+                    Text("没有可用的配置分区。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
@@ -185,7 +185,7 @@ extension ConfigSettings {
             } else if self.store.configSchema != nil {
                 self.emptyDetail
             } else {
-                Text("Schema unavailable.")
+                Text("Schema 不可用。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -196,7 +196,7 @@ extension ConfigSettings {
     private var emptyDetail: some View {
         VStack(alignment: .leading, spacing: 8) {
             self.header
-            Text("Select a config section to view settings.")
+            Text("选择一个配置分区以查看设置。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -273,11 +273,11 @@ extension ConfigSettings {
 
     @ViewBuilder
     private var header: some View {
-        Text("Config")
+        Text("配置")
             .font(.title3.weight(.semibold))
         Text(self.isNixMode
-            ? "This tab is read-only in Nix mode. Edit config via Nix and rebuild."
-            : "Edit ~/.openclaw/openclaw.json using the schema-driven form.")
+            ? "在 Nix 模式下此标签页为只读。请通过 Nix 编辑配置并重新构建。"
+            : "使用 Schema 驱动的表单编辑 ~/.openclaw/openclaw.json。")
             .font(.callout)
             .foregroundStyle(.secondary)
     }
@@ -296,7 +296,7 @@ extension ConfigSettings {
 
     private var actionRow: some View {
         HStack(spacing: 10) {
-            Button("Reload") {
+            Button("重新加载") {
                 Task { await self.store.reloadConfigDraft() }
             }
             .disabled(!self.store.configLoaded)
@@ -360,7 +360,7 @@ extension ConfigSettings {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     self.subsectionButton(
-                        title: "All",
+                        title: "全部",
                         isSelected: self.activeSubsection == .all)
                     {
                         self.activeSubsection = .all
