@@ -476,6 +476,12 @@ private final class ChatComposerNSTextView: NSTextView {
     override func keyDown(with event: NSEvent) {
         let isReturn = event.keyCode == 36
         if isReturn {
+            // 如果输入法正在组合输入（如中文输入法输入英文待确认），
+            // 让系统处理 Enter 以确认输入，而不是发送消息
+            if self.hasMarkedText() {
+                super.keyDown(with: event)
+                return
+            }
             if event.modifierFlags.contains(.shift) {
                 super.insertNewline(nil)
                 return
