@@ -221,6 +221,11 @@ struct OnboardingModelConfigContent: View {
 
     private func saveSelectedModel(_ model: String) async {
         guard !model.isEmpty else { return }
+
+        // 检查模型是否真的改变，避免不必要的保存和 toast
+        let currentModel = self.store.currentDefaultModel() ?? ""
+        guard model != currentModel else { return }
+        
         self.isSavingModel = true
         defer { self.isSavingModel = false }
 

@@ -781,9 +781,9 @@ extension OnboardingView {
 
     func qqChannelPage() -> some View {
         self.onboardingPage {
-            Text("Configure QQ Channel")
+            Text("Configure QQ bot")
                 .font(.largeTitle.weight(.semibold))
-            Text("QQ Channel 是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQ 频道与 AI 助手进行交互。")
+            Text("QQ bot 是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQ bot与 AI 助手进行交互。")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
