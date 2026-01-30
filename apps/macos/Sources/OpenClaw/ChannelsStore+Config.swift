@@ -74,12 +74,27 @@ extension ChannelsStore {
     func saveConfigDraft() async {
         guard !self.isSavingConfig else { return }
         self.isSavingConfig = true
+        self.configSaveResult = nil
         defer { self.isSavingConfig = false }
 
         do {
             try await ConfigStore.save(self.configDraft)
             await self.loadConfig()
+            self.configSaveResult = .success
+            self.showConfigSaveToast = true
+            self.configStatus = nil
+
+            // 清除提供商状态缓存
+            self.providerConfigStatuses.removeAll()
+
+            // 3 秒后自动隐藏 toast
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                self.showConfigSaveToast = false
+            }
         } catch {
+            self.configSaveResult = .error(error.localizedDescription)
+            self.showConfigSaveToast = true
             self.configStatus = error.localizedDescription
         }
     }

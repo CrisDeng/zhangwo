@@ -271,6 +271,25 @@ final class ChannelsStore {
     var configDraft: [String: Any] = [:]
     var configDirty = false
 
+    // MARK: - 提供商配置相关状态
+
+    /// 配置保存结果反馈
+    enum ConfigSaveResult {
+        case success
+        case error(String)
+    }
+    var configSaveResult: ConfigSaveResult?
+    var showConfigSaveToast = false
+
+    /// 提供商配置状态缓存
+    var providerConfigStatuses: [String: ProviderConfigStatus] = [:]
+
+    /// 当前正在测试连接的提供商
+    var testingProviders: Set<String> = []
+
+    /// 连接测试结果
+    var providerTestResults: [String: Bool] = [:]
+
     let interval: TimeInterval = 45
     let isPreview: Bool
     var pollTask: Task<Void, Never>?
@@ -355,5 +374,124 @@ final class ChannelsStore {
 
     init(isPreview: Bool = ProcessInfo.processInfo.isPreview) {
         self.isPreview = isPreview
+    }
+
+    // MARK: - 提供商配置方法
+
+    /// 获取提供商的配置状态
+    func providerStatus(for providerId: String) -> ProviderConfigStatus {
+        if let cached = providerConfigStatuses[providerId] {
+            return cached
+        }
+        // 检查环境变量是否配置
+        guard let template = ProviderTemplates.template(for: providerId) else {
+            return .notConfigured
+        }
+        let envDict = configDraft["env"] as? [String: Any] ?? [:]
+        let hasKey = template.envKeys.contains { key in
+            if let value = envDict[key] as? String, !value.isEmpty {
+                return true
+            }
+            return false
+        }
+        let status: ProviderConfigStatus = hasKey ? .configured : .notConfigured
+        providerConfigStatuses[providerId] = status
+        return status
+    }
+
+    /// 更新提供商配置
+    func updateProviderConfig(_ config: ProviderConfig) {
+        guard let template = ProviderTemplates.template(for: config.providerId) else { return }
+
+        // 更新环境变量
+        if let apiKey = config.apiKey, !apiKey.isEmpty {
+            if let envKey = template.envKeys.first {
+                updateConfigValue(path: [.key("env"), .key(envKey)], value: apiKey)
+            }
+        }
+
+        // 更新默认模型
+        if let model = config.fullModelRef {
+            updateConfigValue(
+                path: [.key("agents"), .key("defaults"), .key("model"), .key("primary")],
+                value: model)
+        }
+
+        // 更新 provider 配置（如果有自定义 baseUrl）
+        if let baseUrl = config.customBaseUrl, !baseUrl.isEmpty {
+            updateConfigValue(
+                path: [.key("models"), .key("providers"), .key(config.providerId), .key("baseUrl")],
+                value: baseUrl)
+        }
+
+        // 清除缓存状态
+        providerConfigStatuses.removeValue(forKey: config.providerId)
+    }
+
+    /// 测试提供商连接
+    func testProviderConnection(providerId: String) async -> Bool {
+        guard !testingProviders.contains(providerId) else { return false }
+        testingProviders.insert(providerId)
+        defer { testingProviders.remove(providerId) }
+
+        // 简单的连接测试 - 通过 gateway 验证
+        do {
+            // 使用 models list 接口检查提供商状态
+            let params: [String: AnyCodable] = ["provider": AnyCodable(providerId)]
+            let _: AnyCodable = try await GatewayConnection.shared.requestDecoded(
+                method: .modelsList,
+                params: params,
+                timeoutMs: 10000)
+            providerTestResults[providerId] = true
+            providerConfigStatuses[providerId] = .verified
+            return true
+        } catch {
+            providerTestResults[providerId] = false
+            providerConfigStatuses[providerId] = .error(error.localizedDescription)
+            return false
+        }
+    }
+
+    /// 保存配置并显示反馈
+    func saveConfigWithFeedback() async {
+        guard !isSavingConfig else { return }
+        isSavingConfig = true
+        configSaveResult = nil
+        defer { isSavingConfig = false }
+
+        do {
+            try await ConfigStore.save(configDraft)
+            await loadConfig()
+            configSaveResult = .success
+            showConfigSaveToast = true
+
+            // 清除提供商状态缓存，重新加载
+            providerConfigStatuses.removeAll()
+
+            // 3 秒后自动隐藏 toast
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                self.showConfigSaveToast = false
+            }
+        } catch {
+            configSaveResult = .error(error.localizedDescription)
+            showConfigSaveToast = true
+            configStatus = error.localizedDescription
+        }
+    }
+
+    /// 获取当前配置的默认模型
+    func currentDefaultModel() -> String? {
+        let agents = configDraft["agents"] as? [String: Any]
+        let defaults = agents?["defaults"] as? [String: Any]
+        let model = defaults?["model"] as? [String: Any]
+        return model?["primary"] as? String
+    }
+
+    /// 获取已配置的提供商列表
+    func configuredProviders() -> [ProviderTemplate] {
+        return ProviderTemplates.all.filter { template in
+            providerStatus(for: template.id).isConfigured
+        }
     }
 }

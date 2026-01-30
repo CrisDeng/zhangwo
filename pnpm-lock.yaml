@@ -172,13 +172,6 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
-    optionalDependencies:
-      '@napi-rs/canvas':
-        specifier: ^0.1.88
-        version: 0.1.88
-      node-llama-cpp:
-        specifier: 3.15.0
-        version: 3.15.0(typescript@5.9.3)
     devDependencies:
       '@grammyjs/types':
         specifier: ^3.23.0
@@ -261,6 +254,13 @@ importers:
       wireit:
         specifier: ^0.14.12
         version: 0.14.12
+    optionalDependencies:
+      '@napi-rs/canvas':
+        specifier: ^0.1.88
+        version: 0.1.88
+      node-llama-cpp:
+        specifier: 3.15.0
+        version: 3.15.0(typescript@5.9.3)
 
   extensions/bluebubbles: {}
 

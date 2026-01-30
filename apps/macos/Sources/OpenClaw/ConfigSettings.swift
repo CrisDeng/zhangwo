@@ -6,6 +6,95 @@ struct ConfigSettings: View {
     private let isNixMode = ProcessInfo.processInfo.isNixMode
     @Bindable var store: ChannelsStore
     @State private var hasLoaded = false
+
+    init(store: ChannelsStore = .shared) {
+        self.store = store
+    }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            // 使用新的模型配置视图
+            ModelConfigSettingsView(store: store)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            // 保存状态 Toast
+            if self.store.showConfigSaveToast {
+                self.saveToastView
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(100)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: self.store.showConfigSaveToast)
+        .task {
+            guard !self.hasLoaded else { return }
+            guard !self.isPreview else { return }
+            self.hasLoaded = true
+            await self.store.loadConfigSchema()
+            await self.store.loadConfig()
+        }
+    }
+
+    @ViewBuilder
+    private var saveToastView: some View {
+        let isSuccess = {
+            if case .success = self.store.configSaveResult {
+                return true
+            }
+            return false
+        }()
+        let errorMessage: String? = {
+            if case let .error(msg) = self.store.configSaveResult {
+                return msg
+            }
+            return nil
+        }()
+
+        HStack(spacing: 10) {
+            Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .font(.title3)
+                .foregroundStyle(isSuccess ? .green : .red)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isSuccess ? "配置保存成功" : "保存失败")
+                    .font(.callout.weight(.semibold))
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                self.store.showConfigSaveToast = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: 400)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4))
+        .padding(.top, 16)
+    }
+}
+
+// MARK: - 高级配置设置视图（保留原有实现供参考）
+
+@MainActor
+struct AdvancedConfigSettings: View {
+    private let isPreview = ProcessInfo.processInfo.isPreview
+    private let isNixMode = ProcessInfo.processInfo.isNixMode
+    @Bindable var store: ChannelsStore
+    @State private var hasLoaded = false
     @State private var activeSectionKey: String?
     @State private var activeSubsection: SubsectionSelection?
 
@@ -33,7 +122,7 @@ struct ConfigSettings: View {
     }
 }
 
-extension ConfigSettings {
+extension AdvancedConfigSettings {
     private enum SubsectionSelection: Hashable {
         case all
         case key(String)
@@ -127,17 +216,12 @@ extension ConfigSettings {
                 if let status = self.store.configStatus {
                     Text(status)
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.red)
                 }
                 self.actionRow
                 self.sectionHeader(section)
                 self.subsectionNav(section)
                 self.sectionForm(section)
-                if self.store.configDirty, !self.isNixMode {
-                    Text("Unsaved changes")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -177,12 +261,27 @@ extension ConfigSettings {
             }
             .disabled(!self.store.configLoaded)
 
-            Button(self.store.isSavingConfig ? "Saving…" : "Save") {
+            Button {
                 Task { await self.store.saveConfigDraft() }
+            } label: {
+                HStack(spacing: 6) {
+                    if self.store.isSavingConfig {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.7)
+                    }
+                    Text(self.store.isSavingConfig ? "保存中…" : "保存")
+                }
             }
+            .buttonStyle(.borderedProminent)
             .disabled(self.isNixMode || self.store.isSavingConfig || !self.store.configDirty)
+
+            if self.store.configDirty {
+                Text("有未保存的更改")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
-        .buttonStyle(.bordered)
     }
 
     private func sidebarRow(_ section: ConfigSection) -> some View {
