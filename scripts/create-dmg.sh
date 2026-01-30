@@ -77,8 +77,16 @@ trap 'hdiutil detach "/Volumes/'"$DMG_VOLUME_NAME"'" -force 2>/dev/null || true;
 cp -R "$APP_PATH" "$DMG_TEMP/"
 ln -s /Applications "$DMG_TEMP/Applications"
 
+# Calculate required size with sufficient headroom.
+# App bundles contain many small files; APFS overhead can be significant.
+# Use 50% overhead or minimum 200MB extra, whichever is larger.
 APP_SIZE_MB=$(du -sm "$APP_PATH" | awk '{print $1}')
-DMG_SIZE_MB=$((APP_SIZE_MB + 80))
+OVERHEAD_MB=$((APP_SIZE_MB / 2))
+if [[ "$OVERHEAD_MB" -lt 200 ]]; then
+  OVERHEAD_MB=200
+fi
+DMG_SIZE_MB=$((APP_SIZE_MB + OVERHEAD_MB))
+echo "App size: ${APP_SIZE_MB}MB, overhead: ${OVERHEAD_MB}MB, DMG size: ${DMG_SIZE_MB}MB"
 
 DMG_RW_PATH="${OUT_PATH%.dmg}-rw.dmg"
 rm -f "$DMG_RW_PATH" "$OUT_PATH"

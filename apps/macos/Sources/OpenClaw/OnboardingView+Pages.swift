@@ -864,17 +864,38 @@ extension OnboardingView {
         defer { self.qqConfigSaving = false }
 
         do {
-            let config: [String: AnyCodable] = [
-                "channels": AnyCodable([
-                    "qq": [
+            // First, load current config to get baseHash
+            let snapshot: ConfigSnapshot = try await GatewayConnection.shared.requestDecoded(
+                method: .configGet,
+                params: nil,
+                timeoutMs: 8000)
+
+            // Build patch config as JSON string
+            let patchConfig: [String: Any] = [
+                "channels": [
+                    "qqbot": [
+                        "enabled": true,
                         "appId": self.qqAppId,
-                        "appSecret": self.qqAppSecret
+                        "clientSecret": self.qqAppSecret
                     ]
-                ])
+                ]
             ]
+            let patchData = try JSONSerialization.data(withJSONObject: patchConfig, options: [.sortedKeys])
+            guard let rawPatch = String(data: patchData, encoding: .utf8) else {
+                self.qqConfigStatus = "Error: Failed to encode config"
+                return
+            }
+
+            // Use config.patch to merge with existing config
+            var params: [String: AnyCodable] = ["raw": AnyCodable(rawPatch)]
+            if let baseHash = snapshot.hash {
+                params["baseHash"] = AnyCodable(baseHash)
+            }
+
             let _: AnyCodable = try await GatewayConnection.shared.requestDecoded(
-                method: .configSet,
-                params: ["config": AnyCodable(config)])
+                method: .configPatch,
+                params: params,
+                timeoutMs: 10000)
             self.qqConfigStatus = "Configuration saved successfully!"
         } catch {
             self.qqConfigStatus = "Error: \(error.localizedDescription)"

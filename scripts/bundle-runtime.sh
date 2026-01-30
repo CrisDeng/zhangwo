@@ -23,50 +23,81 @@ RUNTIME_DIR="$RESOURCES_DIR/runtime"
 NODE_DIR="$RUNTIME_DIR/node"
 CLI_DIR="$RUNTIME_DIR/openclaw"
 
-# Detect architecture
-ARCH="$(uname -m)"
-case "$ARCH" in
-  arm64)
-    NODE_ARCH="arm64"
-    ;;
-  x86_64)
-    NODE_ARCH="x64"
-    ;;
-  *)
-    echo "Unsupported architecture: $ARCH" >&2
-    exit 1
-    ;;
-esac
+# Build mode: universal (both architectures) or native (current machine only)
+BUILD_UNIVERSAL="${BUILD_UNIVERSAL:-1}"
 
-echo "📦 Bundling runtime for $ARCH (Node.js $NODE_VERSION)"
+echo "📦 Bundling runtime (Node.js $NODE_VERSION)"
 
 # Create directories
 mkdir -p "$NODE_DIR"
 mkdir -p "$CLI_DIR"
 
-# Download Node.js if needed
-NODE_TARBALL="node-v${NODE_VERSION}-darwin-${NODE_ARCH}.tar.gz"
-NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TARBALL}"
 NODE_CACHE_DIR="$ROOT_DIR/.cache/node"
-NODE_CACHE_FILE="$NODE_CACHE_DIR/$NODE_TARBALL"
+mkdir -p "$NODE_CACHE_DIR"
 
-if [[ "${SKIP_NODE_DL:-0}" != "1" ]] || [[ ! -f "$NODE_CACHE_FILE" ]]; then
-  echo "⬇️  Downloading Node.js $NODE_VERSION for $NODE_ARCH..."
-  mkdir -p "$NODE_CACHE_DIR"
-  curl -fSL "$NODE_URL" -o "$NODE_CACHE_FILE"
+download_and_extract_node() {
+  local arch="$1"
+  local dest_dir="$2"
+  local node_arch
+  case "$arch" in
+    arm64) node_arch="arm64" ;;
+    x86_64) node_arch="x64" ;;
+    *) echo "Unsupported architecture: $arch" >&2; return 1 ;;
+  esac
+
+  local tarball="node-v${NODE_VERSION}-darwin-${node_arch}.tar.gz"
+  local url="https://nodejs.org/dist/v${NODE_VERSION}/${tarball}"
+  local cache_file="$NODE_CACHE_DIR/$tarball"
+
+  if [[ "${SKIP_NODE_DL:-0}" != "1" ]] || [[ ! -f "$cache_file" ]]; then
+    echo "⬇️  Downloading Node.js $NODE_VERSION for $node_arch..." >&2
+    curl -fSL "$url" -o "$cache_file"
+  fi
+
+  rm -rf "$dest_dir"
+  mkdir -p "$dest_dir"
+  tar -xzf "$cache_file" -C "$dest_dir" --strip-components=2 "node-v${NODE_VERSION}-darwin-${node_arch}/bin/node"
+}
+
+if [[ "$BUILD_UNIVERSAL" == "1" ]]; then
+  echo "🔧 Building Universal Binary (arm64 + x86_64)..."
+
+  NODE_ARM64_DIR="$NODE_CACHE_DIR/node-arm64"
+  NODE_X64_DIR="$NODE_CACHE_DIR/node-x86_64"
+
+  download_and_extract_node "arm64" "$NODE_ARM64_DIR"
+  download_and_extract_node "x86_64" "$NODE_X64_DIR"
+
+  echo "🔗 Creating Universal Binary with lipo..."
+  lipo -create "$NODE_ARM64_DIR/node" "$NODE_X64_DIR/node" -output "$NODE_DIR/node"
+  chmod +x "$NODE_DIR/node"
+
+  # Clean up temp files
+  rm -rf "$NODE_ARM64_DIR" "$NODE_X64_DIR"
+
+  echo "✅ Universal Node.js bundled (arm64 + x86_64)"
+  file "$NODE_DIR/node"
+else
+  # Native build (current architecture only)
+  ARCH="$(uname -m)"
+  echo "🔧 Building for current architecture: $ARCH"
+
+  NATIVE_NODE_DIR="$NODE_CACHE_DIR/node-$ARCH"
+  download_and_extract_node "$ARCH" "$NATIVE_NODE_DIR"
+  cp "$NATIVE_NODE_DIR/node" "$NODE_DIR/node"
+  chmod +x "$NODE_DIR/node"
+  rm -rf "$NATIVE_NODE_DIR"
+
+  echo "✅ Node.js bundled for $ARCH"
 fi
 
-echo "📦 Extracting Node.js..."
-# Extract only the node binary (not the entire tarball)
-tar -xzf "$NODE_CACHE_FILE" -C "$NODE_DIR" --strip-components=2 "node-v${NODE_VERSION}-darwin-${NODE_ARCH}/bin/node"
-chmod +x "$NODE_DIR/node"
-
-# Verify node works
-if ! "$NODE_DIR/node" --version >/dev/null 2>&1; then
+# Verify node works on current machine
+NODE_VER=$("$NODE_DIR/node" --version 2>/dev/null || true)
+if [[ -z "$NODE_VER" ]]; then
   echo "ERROR: Bundled node binary doesn't work" >&2
   exit 1
 fi
-echo "✅ Node.js $(\"$NODE_DIR/node\" --version) bundled"
+echo "✅ Node.js $NODE_VER verified"
 
 # Bundle OpenClaw CLI
 echo "📦 Bundling OpenClaw CLI..."
@@ -136,12 +167,54 @@ mkdir -p "$EXTENSIONS_DIR"
 # Add more extensions here as needed
 BUNDLED_EXTENSIONS=(
   "memory-core"
+  "qqbot"
 )
 
 for ext in "${BUNDLED_EXTENSIONS[@]}"; do
   if [[ -d "$ROOT_DIR/extensions/$ext" ]]; then
     echo "   📦 Bundling extension: $ext"
+
+    # Install dependencies if package.json exists and node_modules doesn't
+    if [[ -f "$ROOT_DIR/extensions/$ext/package.json" ]] && [[ ! -d "$ROOT_DIR/extensions/$ext/node_modules" ]]; then
+      echo "      📦 Installing dependencies for $ext..."
+      (cd "$ROOT_DIR/extensions/$ext" && npm install --omit=dev 2>/dev/null) || true
+    fi
+
+    # Copy the extension (including node_modules)
     cp -R "$ROOT_DIR/extensions/$ext" "$EXTENSIONS_DIR/"
+
+    # Remove .git directory if exists (don't bundle git history)
+    rm -rf "$EXTENSIONS_DIR/$ext/.git" 2>/dev/null || true
+
+    # Remove redundant/duplicate packages from extension node_modules
+    # These are already included in the main CLI node_modules
+    EXT_NODE_MODULES="$EXTENSIONS_DIR/$ext/node_modules"
+    if [[ -d "$EXT_NODE_MODULES" ]]; then
+      echo "      🧹 Cleaning redundant dependencies..."
+      # Remove openclaw/clawdbot/moltbot (already in main CLI)
+      rm -rf "$EXT_NODE_MODULES/openclaw" 2>/dev/null || true
+      rm -rf "$EXT_NODE_MODULES/clawdbot" 2>/dev/null || true
+      rm -rf "$EXT_NODE_MODULES/moltbot" 2>/dev/null || true
+      # Remove typescript (not needed at runtime)
+      rm -rf "$EXT_NODE_MODULES/typescript" 2>/dev/null || true
+      # Remove dev-only and large packages that are already in main CLI
+      rm -rf "$EXT_NODE_MODULES/pdfjs-dist" 2>/dev/null || true
+      rm -rf "$EXT_NODE_MODULES/node-llama-cpp" 2>/dev/null || true
+      rm -rf "$EXT_NODE_MODULES/@node-llama-cpp" 2>/dev/null || true
+      rm -rf "$EXT_NODE_MODULES/playwright-core" 2>/dev/null || true
+      rm -rf "$EXT_NODE_MODULES/chromium-bidi" 2>/dev/null || true
+      # Remove test/docs/examples from remaining packages
+      find "$EXT_NODE_MODULES" -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
+      find "$EXT_NODE_MODULES" -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
+      find "$EXT_NODE_MODULES" -type d -name "__tests__" -exec rm -rf {} + 2>/dev/null || true
+      find "$EXT_NODE_MODULES" -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true
+      find "$EXT_NODE_MODULES" -type f -name "*.md" -delete 2>/dev/null || true
+      find "$EXT_NODE_MODULES" -type f -name "*.map" -delete 2>/dev/null || true
+    fi
+
+    # Show size
+    EXT_DEP_SIZE=$(du -sh "$EXTENSIONS_DIR/$ext" 2>/dev/null | cut -f1 || echo "?")
+    echo "      ✅ $ext bundled ($EXT_DEP_SIZE)"
   else
     echo "   ⚠️  Extension not found: $ext" >&2
   fi

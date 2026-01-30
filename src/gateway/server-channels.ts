@@ -4,16 +4,21 @@ import type { ChannelAccountSnapshot } from "../channels/plugins/types.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import { resetDirectoryCache } from "../infra/outbound/target-resolver.js";
-import type { createSubsystemLogger } from "../logging/subsystem.js";
+import {
+  createSubsystemLogger,
+  type createSubsystemLogger as CreateSubsystemLogger,
+} from "../logging/subsystem.js";
 import { DEFAULT_ACCOUNT_ID } from "../routing/session-key.js";
 import type { RuntimeEnv } from "../runtime.js";
+
+const channelManagerLog = createSubsystemLogger("gateway").child("channel-manager");
 
 export type ChannelRuntimeSnapshot = {
   channels: Partial<Record<ChannelId, ChannelAccountSnapshot>>;
   channelAccounts: Partial<Record<ChannelId, Record<string, ChannelAccountSnapshot>>>;
 };
 
-type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
+type SubsystemLogger = ReturnType<typeof CreateSubsystemLogger>;
 
 type ChannelRuntimeStore = {
   aborts: Map<string, AbortController>;
@@ -92,25 +97,40 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
   const startChannel = async (channelId: ChannelId, accountId?: string) => {
     const plugin = getChannelPlugin(channelId);
     const startAccount = plugin?.gateway?.startAccount;
-    if (!startAccount) return;
+    if (!startAccount) {
+      channelManagerLog.debug(`[${channelId}] no gateway.startAccount hook, skipping`);
+      return;
+    }
     const cfg = loadConfig();
     resetDirectoryCache({ channel: channelId, accountId });
     const store = getStore(channelId);
     const accountIds = accountId ? [accountId] : plugin.config.listAccountIds(cfg);
-    if (accountIds.length === 0) return;
+    if (accountIds.length === 0) {
+      channelManagerLog.debug(`[${channelId}] no accounts configured, skipping`);
+      return;
+    }
+
+    channelManagerLog.info(
+      `[${channelId}] starting ${accountIds.length} account(s): ${accountIds.join(", ")}`,
+    );
 
     await Promise.all(
       accountIds.map(async (id) => {
-        if (store.tasks.has(id)) return;
+        if (store.tasks.has(id)) {
+          channelManagerLog.debug(`[${channelId}:${id}] already running, skipping`);
+          return;
+        }
         const account = plugin.config.resolveAccount(cfg, id);
         const enabled = plugin.config.isEnabled
           ? plugin.config.isEnabled(account, cfg)
           : isAccountEnabled(account);
         if (!enabled) {
+          const reason = plugin.config.disabledReason?.(account, cfg) ?? "disabled";
+          channelManagerLog.info(`[${channelId}:${id}] disabled: ${reason}`);
           setRuntime(channelId, id, {
             accountId: id,
             running: false,
-            lastError: plugin.config.disabledReason?.(account, cfg) ?? "disabled",
+            lastError: reason,
           });
           return;
         }
@@ -120,14 +140,17 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
           configured = await plugin.config.isConfigured(account, cfg);
         }
         if (!configured) {
+          const reason = plugin.config.unconfiguredReason?.(account, cfg) ?? "not configured";
+          channelManagerLog.info(`[${channelId}:${id}] not configured: ${reason}`);
           setRuntime(channelId, id, {
             accountId: id,
             running: false,
-            lastError: plugin.config.unconfiguredReason?.(account, cfg) ?? "not configured",
+            lastError: reason,
           });
           return;
         }
 
+        channelManagerLog.info(`[${channelId}:${id}] starting gateway connection`);
         const abort = new AbortController();
         store.aborts.set(id, abort);
         setRuntime(channelId, id, {
@@ -151,10 +174,12 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
         const tracked = Promise.resolve(task)
           .catch((err) => {
             const message = formatErrorMessage(err);
+            channelManagerLog.error(`[${channelId}:${id}] channel exited with error: ${message}`);
             setRuntime(channelId, id, { accountId: id, lastError: message });
             log.error?.(`[${id}] channel exited: ${message}`);
           })
           .finally(() => {
+            channelManagerLog.debug(`[${channelId}:${id}] channel task finished`);
             store.aborts.delete(id);
             store.tasks.delete(id);
             setRuntime(channelId, id, {
@@ -218,9 +243,45 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
   };
 
   const startChannels = async () => {
-    for (const plugin of listChannelPlugins()) {
+    const plugins = listChannelPlugins();
+    channelManagerLog.info(`starting channels: ${plugins.length} plugins registered`);
+    const cfg = loadConfig();
+
+    // Log summary of enabled channels
+    const enabledChannels: string[] = [];
+    const disabledChannels: string[] = [];
+    for (const plugin of plugins) {
+      const accountIds = plugin.config.listAccountIds(cfg);
+      if (accountIds.length === 0) {
+        disabledChannels.push(plugin.id);
+        continue;
+      }
+      for (const id of accountIds) {
+        const account = plugin.config.resolveAccount(cfg, id);
+        const enabled = plugin.config.isEnabled
+          ? plugin.config.isEnabled(account, cfg)
+          : isAccountEnabled(account);
+        if (enabled) {
+          enabledChannels.push(`${plugin.id}:${id}`);
+        } else {
+          disabledChannels.push(`${plugin.id}:${id}`);
+        }
+      }
+    }
+
+    if (enabledChannels.length > 0) {
+      channelManagerLog.info(`enabled channels: ${enabledChannels.join(", ")}`);
+    }
+    if (disabledChannels.length > 0) {
+      channelManagerLog.debug(`disabled/unconfigured channels: ${disabledChannels.join(", ")}`);
+    }
+
+    // Start each channel
+    for (const plugin of plugins) {
       await startChannel(plugin.id);
     }
+
+    channelManagerLog.info("channel startup complete");
   };
 
   const markChannelLoggedOut = (channelId: ChannelId, cleared: boolean, accountId?: string) => {

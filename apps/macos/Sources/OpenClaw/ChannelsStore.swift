@@ -329,7 +329,7 @@ final class ChannelsStore {
             let result: ChannelsStatusSnapshot = try await GatewayConnection.shared.requestDecoded(
                 method: .channelsStatus,
                 params: [:])
-            if let qqStatus = result.decodeChannel("qq", as: ChannelsStatusSnapshot.QQStatus.self) {
+            if let qqStatus = result.decodeChannel("qqbot", as: ChannelsStatusSnapshot.QQStatus.self) {
                 if qqStatus.connected {
                     self.qqConnectionTestResult = QQConnectionTestResult(success: true, message: nil)
                 } else if qqStatus.running {

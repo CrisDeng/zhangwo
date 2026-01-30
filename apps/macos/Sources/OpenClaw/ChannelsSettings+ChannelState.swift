@@ -71,7 +71,7 @@ extension ChannelsSettings {
     }
 
     var qqTint: Color {
-        guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
+        guard let status = self.channelStatus("qqbot", as: ChannelsStatusSnapshot.QQStatus.self)
         else { return .secondary }
         if !status.configured { return .secondary }
         if status.lastError != nil { return .orange }
@@ -131,7 +131,7 @@ extension ChannelsSettings {
     }
 
     var qqSummary: String {
-        guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
+        guard let status = self.channelStatus("qqbot", as: ChannelsStatusSnapshot.QQStatus.self)
         else { return "Checking…" }
         if !status.configured { return "Not configured" }
         if status.connected { return "Connected" }
@@ -313,7 +313,7 @@ extension ChannelsSettings {
     }
 
     var qqDetails: String? {
-        guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
+        guard let status = self.channelStatus("qqbot", as: ChannelsStatusSnapshot.QQStatus.self)
         else { return nil }
         var lines: [String] = []
         if let appId = status.appId, !appId.isEmpty {
@@ -339,7 +339,7 @@ extension ChannelsSettings {
     }
 
     var orderedChannels: [ChannelItem] {
-        let fallback = ["whatsapp", "telegram", "discord", "googlechat", "slack", "signal", "imessage", "qq"]
+        let fallback = ["whatsapp", "telegram", "discord", "googlechat", "slack", "signal", "imessage", "qqbot"]
         let order = self.store.snapshot?.channelOrder ?? fallback
         let channels = order.enumerated().map { index, id in
             ChannelItem(
@@ -389,7 +389,7 @@ extension ChannelsSettings {
     func channelSection(_ channel: ChannelItem) -> some View {
         if channel.id == "whatsapp" {
             self.whatsAppSection
-        } else if channel.id == "qq" {
+        } else if channel.id == "qqbot" {
             self.qqSection
         } else {
             self.genericChannelSection(channel)
@@ -410,7 +410,7 @@ extension ChannelsSettings {
             return self.signalTint
         case "imessage":
             return self.imessageTint
-        case "qq":
+        case "qqbot":
             return self.qqTint
         default:
             if self.channelHasError(channel) { return .orange }
@@ -433,7 +433,7 @@ extension ChannelsSettings {
             return self.signalSummary
         case "imessage":
             return self.imessageSummary
-        case "qq":
+        case "qqbot":
             return self.qqSummary
         default:
             if self.channelHasError(channel) { return "Error" }
@@ -456,7 +456,7 @@ extension ChannelsSettings {
             return self.signalDetails
         case "imessage":
             return self.imessageDetails
-        case "qq":
+        case "qqbot":
             return self.qqDetails
         default:
             let status = self.channelStatusDictionary(channel.id)
@@ -497,9 +497,9 @@ extension ChannelsSettings {
             return self
                 .date(fromMs: self.channelStatus("imessage", as: ChannelsStatusSnapshot.IMessageStatus.self)?
                     .lastProbeAt)
-        case "qq":
+        case "qqbot":
             return self
-                .date(fromMs: self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)?.lastProbeAt)
+                .date(fromMs: self.channelStatus("qqbot", as: ChannelsStatusSnapshot.QQStatus.self)?.lastProbeAt)
         default:
             let status = self.channelStatusDictionary(channel.id)
             if let probeAt = status?["lastProbeAt"]?.doubleValue {
@@ -539,8 +539,8 @@ extension ChannelsSettings {
             guard let status = self.channelStatus("imessage", as: ChannelsStatusSnapshot.IMessageStatus.self)
             else { return false }
             return status.lastError?.isEmpty == false || status.probe?.ok == false
-        case "qq":
-            guard let status = self.channelStatus("qq", as: ChannelsStatusSnapshot.QQStatus.self)
+        case "qqbot":
+            guard let status = self.channelStatus("qqbot", as: ChannelsStatusSnapshot.QQStatus.self)
             else { return false }
             return status.lastError?.isEmpty == false || status.probe?.ok == false
         default:

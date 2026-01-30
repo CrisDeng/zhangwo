@@ -254,6 +254,7 @@ private final class StatusItemMouseHandlerView: NSView {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var state: AppState?
+    private let logger = Logger(subsystem: "ai.openclaw", category: "app.startup")
     private let webChatAutoLogger = Logger(subsystem: "ai.openclaw", category: "Chat")
     let updaterController: UpdaterProviding = makeUpdaterController()
 
@@ -273,6 +274,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.state = AppStateStore.shared
         AppActivationPolicy.apply(showDockIcon: self.state?.showDockIcon ?? false)
+
+        // Run startup diagnostics early to log Node/Gateway/Extension status
+        Task {
+            let diagnostics = await StartupDiagnostics.runAndLog()
+            // Log connection mode for debugging
+            self.logger.info(
+                """
+                startup: connectionMode=\(AppStateStore.shared.connectionMode.rawValue, privacy: .public) \
+                isPaused=\(AppStateStore.shared.isPaused, privacy: .public) \
+                onboardingSeen=\(AppStateStore.shared.onboardingSeen, privacy: .public)
+                """)
+            if !diagnostics.nodeStatus.ok {
+                self.logger.error("startup: node check failed - gateway may not start")
+            }
+            if !diagnostics.gatewayStatus.ok {
+                self.logger.error("startup: gateway check failed - \(diagnostics.gatewayStatus.error ?? "unknown")")
+            }
+        }
+
         if let state {
             Task { await ConnectionModeCoordinator.shared.apply(mode: state.connectionMode, paused: state.isPaused) }
         }

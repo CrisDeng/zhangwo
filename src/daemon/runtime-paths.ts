@@ -144,6 +144,16 @@ export function renderSystemNodeWarning(
   return `System Node ${versionLabel} at ${systemNode.path} is below the required Node 22+.${selectedLabel} Install Node 22+ from nodejs.org or Homebrew.`;
 }
 
+/**
+ * Check if the current process is running from a bundled macOS app.
+ * This detects paths like /Applications/OpenClaw.app/Contents/Resources/runtime/node/node
+ */
+function isBundledMacAppNode(execPath: string): boolean {
+  const normalized = execPath.replace(/\\/g, "/");
+  // Match patterns like: *.app/Contents/Resources/runtime/node/node
+  return /\.app\/Contents\/Resources\/runtime\/node\/node$/i.test(normalized);
+}
+
 export async function resolvePreferredNodePath(params: {
   env?: Record<string, string | undefined>;
   runtime?: string;
@@ -151,6 +161,13 @@ export async function resolvePreferredNodePath(params: {
   execFile?: ExecFileAsync;
 }): Promise<string | undefined> {
   if (params.runtime !== "node") return undefined;
+
+  // If running from a bundled macOS app, prefer the bundled node (process.execPath)
+  // by returning undefined, which causes the caller to use process.execPath.
+  if (isBundledMacAppNode(process.execPath)) {
+    return undefined;
+  }
+
   const systemNode = await resolveSystemNodeInfo(params);
   if (!systemNode?.supported) return undefined;
   return systemNode.path;
