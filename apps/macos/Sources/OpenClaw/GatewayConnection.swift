@@ -397,7 +397,8 @@ actor GatewayConnection {
     }
 
     private func configure(url: URL, token: String?, password: String?) async {
-        gatewayConnectionLogger.info("Configuring gateway connection: url=\(url), hasToken=\(token != nil), hasPassword=\(password != nil)")
+        let tokenPrefix = token.map { String($0.prefix(8)) } ?? "nil"
+        gatewayConnectionLogger.info("Configuring gateway connection: url=\(url), hasToken=\(token != nil), tokenPrefix=\(tokenPrefix, privacy: .public)..., hasPassword=\(password != nil)")
         
         if self.client != nil, self.configuredURL == url, self.configuredToken == token,
            self.configuredPassword == password
@@ -406,13 +407,22 @@ actor GatewayConnection {
             return
         }
         
+        // 记录配置变化的详细信息
+        if self.client != nil {
+            let oldTokenPrefix = self.configuredToken.map { String($0.prefix(8)) } ?? "nil"
+            let urlChanged = self.configuredURL != url
+            let tokenChanged = self.configuredToken != token
+            let passwordChanged = self.configuredPassword != password
+            gatewayConnectionLogger.info("Gateway connection config changed: urlChanged=\(urlChanged), tokenChanged=\(tokenChanged), passwordChanged=\(passwordChanged), oldTokenPrefix=\(oldTokenPrefix, privacy: .public)..., newTokenPrefix=\(tokenPrefix, privacy: .public)...")
+        }
+        
         if let client {
             gatewayConnectionLogger.info("Shutting down existing gateway client connection")
             await client.shutdown()
         }
         
         self.lastSnapshot = nil
-        gatewayConnectionLogger.info("Creating new GatewayChannelActor for connection")
+        gatewayConnectionLogger.info("Creating new GatewayChannelActor for connection with tokenPrefix=\(tokenPrefix, privacy: .public)...")
         self.client = GatewayChannelActor(
             url: url,
             token: token,

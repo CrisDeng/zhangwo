@@ -152,9 +152,13 @@ actor GatewayEndpointStore {
         env: [String: String],
         launchdSnapshot: LaunchAgentPlistSnapshot?) -> String?
     {
+        staticLogger.info("resolveGatewayToken called: isRemote=\(isRemote)")
+        
         let raw = env["OPENCLAW_GATEWAY_TOKEN"] ?? ""
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
+            let tokenPrefix = String(trimmed.prefix(8))
+            staticLogger.info("resolveGatewayToken: using env OPENCLAW_GATEWAY_TOKEN, prefix=\(tokenPrefix, privacy: .public)...")
             if let configToken = self.resolveConfigToken(isRemote: isRemote, root: root),
                !configToken.isEmpty,
                configToken != trimmed
@@ -170,19 +174,26 @@ actor GatewayEndpointStore {
         if let configToken = self.resolveConfigToken(isRemote: isRemote, root: root),
            !configToken.isEmpty
         {
+            let tokenPrefix = String(configToken.prefix(8))
+            let configKey = isRemote ? "gateway.remote.token" : "gateway.auth.token"
+            staticLogger.info("resolveGatewayToken: using config \(configKey, privacy: .public), prefix=\(tokenPrefix, privacy: .public)...")
             return configToken
         }
 
         if isRemote {
+            staticLogger.info("resolveGatewayToken: remote mode with no token found")
             return nil
         }
 
         if let token = launchdSnapshot?.token?.trimmingCharacters(in: .whitespacesAndNewlines),
            !token.isEmpty
         {
+            let tokenPrefix = String(token.prefix(8))
+            staticLogger.info("resolveGatewayToken: using launchd snapshot token, prefix=\(tokenPrefix, privacy: .public)...")
             return token
         }
 
+        staticLogger.info("resolveGatewayToken: no token found from any source")
         return nil
     }
 
