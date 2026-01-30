@@ -1,1 +1,2 @@
 * text=auto eol=lf
+/assets/node filter=lfs diff=lfs merge=lfs -text

@@ -26,69 +26,82 @@ CLI_DIR="$RUNTIME_DIR/openclaw"
 # Build mode: universal (both architectures) or native (current machine only)
 BUILD_UNIVERSAL="${BUILD_UNIVERSAL:-1}"
 
+# Pre-built node binary path (if exists, skip download)
+PREBUILT_NODE="$ROOT_DIR/assets/node"
+
 echo "📦 Bundling runtime (Node.js $NODE_VERSION)"
 
 # Create directories
 mkdir -p "$NODE_DIR"
 mkdir -p "$CLI_DIR"
 
-NODE_CACHE_DIR="$ROOT_DIR/.cache/node"
-mkdir -p "$NODE_CACHE_DIR"
-
-download_and_extract_node() {
-  local arch="$1"
-  local dest_dir="$2"
-  local node_arch
-  case "$arch" in
-    arm64) node_arch="arm64" ;;
-    x86_64) node_arch="x64" ;;
-    *) echo "Unsupported architecture: $arch" >&2; return 1 ;;
-  esac
-
-  local tarball="node-v${NODE_VERSION}-darwin-${node_arch}.tar.gz"
-  local url="https://nodejs.org/dist/v${NODE_VERSION}/${tarball}"
-  local cache_file="$NODE_CACHE_DIR/$tarball"
-
-  if [[ "${SKIP_NODE_DL:-0}" != "1" ]] || [[ ! -f "$cache_file" ]]; then
-    echo "⬇️  Downloading Node.js $NODE_VERSION for $node_arch..." >&2
-    curl -fSL "$url" -o "$cache_file"
-  fi
-
-  rm -rf "$dest_dir"
-  mkdir -p "$dest_dir"
-  tar -xzf "$cache_file" -C "$dest_dir" --strip-components=2 "node-v${NODE_VERSION}-darwin-${node_arch}/bin/node"
-}
-
-if [[ "$BUILD_UNIVERSAL" == "1" ]]; then
-  echo "🔧 Building Universal Binary (arm64 + x86_64)..."
-
-  NODE_ARM64_DIR="$NODE_CACHE_DIR/node-arm64"
-  NODE_X64_DIR="$NODE_CACHE_DIR/node-x86_64"
-
-  download_and_extract_node "arm64" "$NODE_ARM64_DIR"
-  download_and_extract_node "x86_64" "$NODE_X64_DIR"
-
-  echo "🔗 Creating Universal Binary with lipo..."
-  lipo -create "$NODE_ARM64_DIR/node" "$NODE_X64_DIR/node" -output "$NODE_DIR/node"
+# Check for pre-built node binary first
+if [[ -f "$PREBUILT_NODE" ]]; then
+  echo "📦 Using pre-built Node.js from assets/node"
+  cp "$PREBUILT_NODE" "$NODE_DIR/node"
   chmod +x "$NODE_DIR/node"
-
-  # Clean up temp files
-  rm -rf "$NODE_ARM64_DIR" "$NODE_X64_DIR"
-
-  echo "✅ Universal Node.js bundled (arm64 + x86_64)"
+  echo "✅ Pre-built Node.js copied"
   file "$NODE_DIR/node"
 else
-  # Native build (current architecture only)
-  ARCH="$(uname -m)"
-  echo "🔧 Building for current architecture: $ARCH"
+  # Download and build node binary
+  NODE_CACHE_DIR="$ROOT_DIR/.cache/node"
+  mkdir -p "$NODE_CACHE_DIR"
 
-  NATIVE_NODE_DIR="$NODE_CACHE_DIR/node-$ARCH"
-  download_and_extract_node "$ARCH" "$NATIVE_NODE_DIR"
-  cp "$NATIVE_NODE_DIR/node" "$NODE_DIR/node"
-  chmod +x "$NODE_DIR/node"
-  rm -rf "$NATIVE_NODE_DIR"
+  download_and_extract_node() {
+    local arch="$1"
+    local dest_dir="$2"
+    local node_arch
+    case "$arch" in
+      arm64) node_arch="arm64" ;;
+      x86_64) node_arch="x64" ;;
+      *) echo "Unsupported architecture: $arch" >&2; return 1 ;;
+    esac
 
-  echo "✅ Node.js bundled for $ARCH"
+    local tarball="node-v${NODE_VERSION}-darwin-${node_arch}.tar.gz"
+    local url="https://nodejs.org/dist/v${NODE_VERSION}/${tarball}"
+    local cache_file="$NODE_CACHE_DIR/$tarball"
+
+    if [[ "${SKIP_NODE_DL:-0}" != "1" ]] || [[ ! -f "$cache_file" ]]; then
+      echo "⬇️  Downloading Node.js $NODE_VERSION for $node_arch..." >&2
+      curl -fSL "$url" -o "$cache_file"
+    fi
+
+    rm -rf "$dest_dir"
+    mkdir -p "$dest_dir"
+    tar -xzf "$cache_file" -C "$dest_dir" --strip-components=2 "node-v${NODE_VERSION}-darwin-${node_arch}/bin/node"
+  }
+
+  if [[ "$BUILD_UNIVERSAL" == "1" ]]; then
+    echo "🔧 Building Universal Binary (arm64 + x86_64)..."
+
+    NODE_ARM64_DIR="$NODE_CACHE_DIR/node-arm64"
+    NODE_X64_DIR="$NODE_CACHE_DIR/node-x86_64"
+
+    download_and_extract_node "arm64" "$NODE_ARM64_DIR"
+    download_and_extract_node "x86_64" "$NODE_X64_DIR"
+
+    echo "🔗 Creating Universal Binary with lipo..."
+    lipo -create "$NODE_ARM64_DIR/node" "$NODE_X64_DIR/node" -output "$NODE_DIR/node"
+    chmod +x "$NODE_DIR/node"
+
+    # Clean up temp files
+    rm -rf "$NODE_ARM64_DIR" "$NODE_X64_DIR"
+
+    echo "✅ Universal Node.js bundled (arm64 + x86_64)"
+    file "$NODE_DIR/node"
+  else
+    # Native build (current architecture only)
+    ARCH="$(uname -m)"
+    echo "🔧 Building for current architecture: $ARCH"
+
+    NATIVE_NODE_DIR="$NODE_CACHE_DIR/node-$ARCH"
+    download_and_extract_node "$ARCH" "$NATIVE_NODE_DIR"
+    cp "$NATIVE_NODE_DIR/node" "$NODE_DIR/node"
+    chmod +x "$NODE_DIR/node"
+    rm -rf "$NATIVE_NODE_DIR"
+
+    echo "✅ Node.js bundled for $ARCH"
+  fi
 fi
 
 # Verify node works on current machine
