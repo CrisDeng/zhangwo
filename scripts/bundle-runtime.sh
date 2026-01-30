@@ -127,13 +127,48 @@ find "$CLI_DIR/node_modules" -type d -name "examples" -exec rm -rf {} + 2>/dev/n
 rm -rf "$CLI_DIR/node_modules/.pnpm" 2>/dev/null || true
 rm -rf "$CLI_DIR/node_modules/.modules.yaml" 2>/dev/null || true
 
+# Bundle extensions (plugins)
+echo "📦 Bundling extensions..."
+EXTENSIONS_DIR="$CLI_DIR/extensions"
+mkdir -p "$EXTENSIONS_DIR"
+
+# Copy only essential extensions (memory-core is required for default functionality)
+# Add more extensions here as needed
+BUNDLED_EXTENSIONS=(
+  "memory-core"
+)
+
+for ext in "${BUNDLED_EXTENSIONS[@]}"; do
+  if [[ -d "$ROOT_DIR/extensions/$ext" ]]; then
+    echo "   📦 Bundling extension: $ext"
+    cp -R "$ROOT_DIR/extensions/$ext" "$EXTENSIONS_DIR/"
+  else
+    echo "   ⚠️  Extension not found: $ext" >&2
+  fi
+done
+
+# Bundle workspace templates (required for agent workspace bootstrap)
+echo "📦 Bundling workspace templates..."
+TEMPLATES_SRC="$ROOT_DIR/docs/reference/templates"
+TEMPLATES_DEST="$CLI_DIR/docs/reference/templates"
+if [[ -d "$TEMPLATES_SRC" ]]; then
+  mkdir -p "$TEMPLATES_DEST"
+  cp "$TEMPLATES_SRC"/*.md "$TEMPLATES_DEST/"
+  TEMPLATE_COUNT=$(ls -1 "$TEMPLATES_DEST"/*.md 2>/dev/null | wc -l | tr -d ' ')
+  echo "   ✅ Copied $TEMPLATE_COUNT template files"
+else
+  echo "   ⚠️  Templates directory not found: $TEMPLATES_SRC" >&2
+fi
+
 # Calculate sizes
 NODE_SIZE=$(du -sh "$NODE_DIR" | cut -f1)
 CLI_SIZE=$(du -sh "$CLI_DIR" | cut -f1)
+EXT_SIZE=$(du -sh "$EXTENSIONS_DIR" 2>/dev/null | cut -f1 || echo "0")
 TOTAL_SIZE=$(du -sh "$RUNTIME_DIR" | cut -f1)
 
 echo "✅ Runtime bundled:"
-echo "   Node.js: $NODE_SIZE"
-echo "   CLI:     $CLI_SIZE"
-echo "   Total:   $TOTAL_SIZE"
-echo "   Path:    $RUNTIME_DIR"
+echo "   Node.js:    $NODE_SIZE"
+echo "   CLI:        $CLI_SIZE"
+echo "   Extensions: $EXT_SIZE"
+echo "   Total:      $TOTAL_SIZE"
+echo "   Path:       $RUNTIME_DIR"
