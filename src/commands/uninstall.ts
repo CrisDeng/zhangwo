@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { cancel, confirm, isCancel, multiselect } from "@clack/prompts";
 
@@ -8,6 +9,21 @@ import {
   resolveOAuthDir,
   resolveStateDir,
 } from "../config/config.js";
+
+/**
+ * Finds the installed macOS app bundle in /Applications.
+ * Returns the path to the .app bundle if found, null otherwise.
+ * Supports both "掌握.app" (current) and "OpenClaw.app" (legacy).
+ */
+function findInstalledMacApp(): string | null {
+  const candidates = ["/Applications/掌握.app", "/Applications/OpenClaw.app"];
+  for (const appPath of candidates) {
+    if (fs.existsSync(appPath)) {
+      return appPath;
+    }
+  }
+  return null;
+}
 import { resolveGatewayService } from "../daemon/service.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { stylePromptHint, stylePromptMessage, stylePromptTitle } from "../terminal/prompt-style.js";
@@ -82,9 +98,14 @@ async function stopAndUninstallService(runtime: RuntimeEnv): Promise<boolean> {
 
 async function removeMacApp(runtime: RuntimeEnv, dryRun?: boolean) {
   if (process.platform !== "darwin") return;
-  await removePath("/Applications/OpenClaw.app", runtime, {
+  const appPath = findInstalledMacApp();
+  if (!appPath) {
+    runtime.log("macOS app not found in /Applications.");
+    return;
+  }
+  await removePath(appPath, runtime, {
     dryRun,
-    label: "/Applications/OpenClaw.app",
+    label: appPath,
   });
 }
 
@@ -116,7 +137,7 @@ export async function uninstallCommand(runtime: RuntimeEnv, opts: UninstallOptio
         {
           value: "app",
           label: "macOS app",
-          hint: "/Applications/OpenClaw.app",
+          hint: "/Applications/掌握.app",
         },
       ],
       initialValues: ["service", "state", "workspace"],

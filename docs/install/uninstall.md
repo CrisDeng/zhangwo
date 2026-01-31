@@ -65,6 +65,9 @@ bun remove -g openclaw
 6) If you installed the macOS app:
 
 ```bash
+# Current app name
+rm -rf /Applications/掌握.app
+# Or legacy app name
 rm -rf /Applications/OpenClaw.app
 ```
 

@@ -191,11 +191,31 @@ choose_app_bundle() {
     return 0
   fi
 
+  # Check for installed app (current name "掌握" or legacy "OpenClaw")
+  if [[ -d "/Applications/掌握.app" ]]; then
+    APP_BUNDLE="/Applications/掌握.app"
+    return 0
+  fi
+
   if [[ -d "/Applications/OpenClaw.app" ]]; then
     APP_BUNDLE="/Applications/OpenClaw.app"
     return 0
   fi
 
+  # Check for freshly built app in dist/ (matches CFBundleName from Info.plist)
+  # Read display name from Info.plist, fallback to "OpenClaw"
+  local APP_DISPLAY_NAME
+  APP_DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleName" "${ROOT_DIR}/apps/macos/Sources/OpenClaw/Resources/Info.plist" 2>/dev/null || echo "OpenClaw")
+
+  if [[ -d "${ROOT_DIR}/dist/${APP_DISPLAY_NAME}.app" ]]; then
+    APP_BUNDLE="${ROOT_DIR}/dist/${APP_DISPLAY_NAME}.app"
+    if [[ ! -d "${APP_BUNDLE}/Contents/Frameworks/Sparkle.framework" ]]; then
+      fail "dist/${APP_DISPLAY_NAME}.app missing Sparkle after packaging"
+    fi
+    return 0
+  fi
+
+  # Fallback to legacy name
   if [[ -d "${ROOT_DIR}/dist/OpenClaw.app" ]]; then
     APP_BUNDLE="${ROOT_DIR}/dist/OpenClaw.app"
     if [[ ! -d "${APP_BUNDLE}/Contents/Frameworks/Sparkle.framework" ]]; then
@@ -204,7 +224,7 @@ choose_app_bundle() {
     return 0
   fi
 
-  fail "App bundle not found. Set OPENCLAW_APP_BUNDLE to your installed OpenClaw.app"
+  fail "App bundle not found. Set OPENCLAW_APP_BUNDLE to your installed app"
 }
 
 choose_app_bundle

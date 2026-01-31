@@ -146,12 +146,41 @@ export function renderSystemNodeWarning(
 
 /**
  * Check if the current process is running from a bundled macOS app.
- * This detects paths like /Applications/OpenClaw.app/Contents/Resources/runtime/node/node
+ * This detects paths like /Applications/掌握.app/Contents/Resources/runtime/node/node
  */
 function isBundledMacAppNode(execPath: string): boolean {
   const normalized = execPath.replace(/\\/g, "/");
   // Match patterns like: *.app/Contents/Resources/runtime/node/node
   return /\.app\/Contents\/Resources\/runtime\/node\/node$/i.test(normalized);
+}
+
+/**
+ * Try to find bundled node from the CLI entrypoint path (argv[1]).
+ * This handles cases where the CLI is invoked from a bundled app but process.execPath
+ * is not the bundled node (e.g., when ShellExecutor spawns a new shell process).
+ */
+function findBundledNodeFromArgv(): string | null {
+  const argv1 = process.argv[1];
+  if (!argv1) return null;
+
+  const normalized = argv1.replace(/\\/g, "/");
+  // Match patterns like: *.app/Contents/Resources/runtime/openclaw/...
+  const appMatch = normalized.match(/^(.+\.app\/Contents\/Resources\/runtime)\//i);
+  if (!appMatch) return null;
+
+  const runtimeDir = appMatch[1];
+  const bundledNodePath = `${runtimeDir}/node/node`;
+
+  // Check if the bundled node exists
+  try {
+    const fs = require("node:fs");
+    if (fs.existsSync(bundledNodePath)) {
+      return bundledNodePath;
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null;
 }
 
 export async function resolvePreferredNodePath(params: {
@@ -166,6 +195,13 @@ export async function resolvePreferredNodePath(params: {
   // by returning undefined, which causes the caller to use process.execPath.
   if (isBundledMacAppNode(process.execPath)) {
     return undefined;
+  }
+
+  // Try to find bundled node from the CLI entrypoint path (argv[1]).
+  // This handles cases where the app invokes CLI via shell but we want to use bundled node.
+  const bundledNode = findBundledNodeFromArgv();
+  if (bundledNode) {
+    return bundledNode;
   }
 
   const systemNode = await resolveSystemNodeInfo(params);
