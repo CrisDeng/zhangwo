@@ -1,6 +1,6 @@
-# 掌握 - QQ X OpenClaw 一键安装版
+# 掌握 - OpenClaw x QQ， 图形化界面一键安装，无需 CLI 操作。
 
-一款基于 OpenClaw 的个人 AI 助手，支持通过 QQBot 与 AI 进行交互。
+基于 OpenClaw 的本地私人助手，无编码经验的朋友可 2 分钟接入到 QQBot，通过 QQBot 给助理下发指令。
 
 ## 📖 使用教程
 
