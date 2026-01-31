@@ -187,10 +187,22 @@ for ext in "${BUNDLED_EXTENSIONS[@]}"; do
   if [[ -d "$ROOT_DIR/extensions/$ext" ]]; then
     echo "   📦 Bundling extension: $ext"
 
-    # Install dependencies if package.json exists and node_modules doesn't
-    if [[ -f "$ROOT_DIR/extensions/$ext/package.json" ]] && [[ ! -d "$ROOT_DIR/extensions/$ext/node_modules" ]]; then
+    # Always ensure full dependencies are installed
+    # (pnpm workspace may leave incomplete node_modules with symlinks)
+    if [[ -f "$ROOT_DIR/extensions/$ext/package.json" ]]; then
       echo "      📦 Installing dependencies for $ext..."
-      (cd "$ROOT_DIR/extensions/$ext" && npm install --omit=dev 2>/dev/null) || true
+      # Use npm ci if package-lock.json exists, otherwise npm install
+      if [[ -f "$ROOT_DIR/extensions/$ext/package-lock.json" ]]; then
+        (cd "$ROOT_DIR/extensions/$ext" && npm ci) || echo "      ⚠️  npm ci failed for $ext"
+      else
+        (cd "$ROOT_DIR/extensions/$ext" && npm install) || echo "      ⚠️  npm install failed for $ext"
+      fi
+      # Verify installation
+      if [[ ! -d "$ROOT_DIR/extensions/$ext/node_modules" ]] || [[ -z "$(ls -A "$ROOT_DIR/extensions/$ext/node_modules" 2>/dev/null)" ]]; then
+        echo "      ❌ ERROR: node_modules is empty for $ext"
+      else
+        echo "      ✅ Dependencies installed: $(du -sh "$ROOT_DIR/extensions/$ext/node_modules" | cut -f1)"
+      fi
     fi
 
     # Copy the extension (including node_modules)
