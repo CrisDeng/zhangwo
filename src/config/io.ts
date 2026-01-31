@@ -241,7 +241,12 @@ export function createConfigIO(overrides: ConfigIoDeps = {}) {
           .join("\n");
         if (!loggedInvalidConfigs.has(configPath)) {
           loggedInvalidConfigs.add(configPath);
-          deps.logger.error(`Invalid config at ${configPath}:\\n${details}`);
+          deps.logger.error(
+            `Configuration validation failed. Gateway cannot start with invalid config.\n` +
+              `Config file: ${configPath}\n` +
+              `Issues found:\n${details}\n` +
+              `\nTo fix: Run "openclaw doctor --fix" or manually correct the config file.`,
+          );
         }
         const error = new Error("Invalid config");
         (error as { code?: string; details?: string }).code = "INVALID_CONFIG";

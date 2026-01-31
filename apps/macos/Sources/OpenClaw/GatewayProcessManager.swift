@@ -409,7 +409,13 @@ final class GatewayProcessManager {
         }
 
         self.logger.error("Gateway startup timeout after \(attemptCount) attempts")
-        self.status = .failed("Gateway did not start in time")
+        
+        // Try to extract meaningful error from gateway log
+        let logPath = GatewayLaunchAgentManager.launchdGatewayLogPath()
+        let recentLog = Self.readGatewayLog(path: logPath, limit: 5000)
+        let errorMessage = self.extractStartupFailureReason(from: recentLog)
+        
+        self.status = .failed(errorMessage)
         self.lastFailureReason = "launchd start timeout"
     }
 
@@ -463,6 +469,83 @@ final class GatewayProcessManager {
         CommandResolver.projectRootPath()
     }
 
+    /// Extract a user-friendly error message from gateway log when startup fails
+    private func extractStartupFailureReason(from log: String) -> String {
+        // Check for configuration errors (most common cause)
+        if log.contains("Invalid config") {
+            // Try to extract the specific config error details
+            if let errorRange = log.range(of: "Invalid config at [^:]+:", options: .regularExpression),
+               let detailsStart = log.range(of: "\n- ", range: errorRange.upperBound..<log.endIndex)
+            {
+                // Extract up to 3 error lines
+                var errorLines: [String] = []
+                var searchRange = detailsStart.lowerBound..<log.endIndex
+                
+                for _ in 0..<3 {
+                    if let lineEnd = log.range(of: "\n", range: searchRange) {
+                        let line = String(log[searchRange.lowerBound..<lineEnd.lowerBound])
+                        if line.hasPrefix("- ") {
+                            errorLines.append(line)
+                            searchRange = lineEnd.upperBound..<log.endIndex
+                        } else {
+                            break
+                        }
+                    } else {
+                        break
+                    }
+                }
+                
+                if !errorLines.isEmpty {
+                    let configPath = "~/.openclaw/openclaw.json"
+                    let errors = errorLines.joined(separator: "\n")
+                    return """
+                    Gateway failed to start due to configuration errors in \(configPath):
+                    \(errors)
+                    
+                    Fix: Edit the config file to add missing required fields, or run 'openclaw doctor --fix' to repair it.
+                    """
+                }
+            }
+            
+            // Fallback if we can't parse details
+            return """
+            Gateway failed to start due to invalid configuration.
+            Check ~/.openclaw/openclaw.json for errors, or run 'openclaw doctor --fix' to diagnose and repair.
+            """
+        }
+        
+        // Check for port already in use
+        if log.contains("EADDRINUSE") || log.contains("address already in use") {
+            let port = GatewayEnvironment.gatewayPort()
+            return """
+            Gateway failed to start: port \(port) is already in use by another process.
+            Stop the other process or change the gateway port in settings.
+            """
+        }
+        
+        // Check for permission errors
+        if log.contains("EACCES") || log.contains("permission denied") {
+            return """
+            Gateway failed to start due to permission errors.
+            Check file permissions for ~/.openclaw/ directory and gateway executable.
+            """
+        }
+        
+        // Check for missing dependencies
+        if log.contains("Cannot find module") || log.contains("MODULE_NOT_FOUND") {
+            return """
+            Gateway failed to start: missing required dependencies.
+            Try reinstalling the gateway or running 'openclaw doctor' to check the environment.
+            """
+        }
+        
+        // Generic timeout message with hint to check logs
+        return """
+        Gateway did not start in time (timeout after 6 seconds).
+        Check gateway logs for details or run 'openclaw doctor' to diagnose the issue.
+        """
+    }
+    
     private nonisolated static func readGatewayLog(path: String, limit: Int) -> String {
         guard FileManager().fileExists(atPath: path) else { return "" }
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else { return "" }

@@ -36,7 +36,12 @@ export async function updateConfig(
   const snapshot = await readConfigFileSnapshot();
   if (!snapshot.valid) {
     const issues = snapshot.issues.map((issue) => `- ${issue.path}: ${issue.message}`).join("\n");
-    throw new Error(`Invalid config at ${snapshot.path}\n${issues}`);
+    throw new Error(
+      `Configuration validation failed. Cannot update config with existing errors.\n` +
+        `Config file: ${snapshot.path}\n` +
+        `Issues:\n${issues}\n\n` +
+        `Fix these issues first by running "openclaw doctor --fix" or manually editing the config.`,
+    );
   }
   const next = mutator(snapshot.config);
   await writeConfigFile(next);

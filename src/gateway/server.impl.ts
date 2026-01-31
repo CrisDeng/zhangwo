@@ -191,7 +191,13 @@ export async function startGatewayServer(
             .join("\n")
         : "Unknown validation issue.";
     throw new Error(
-      `Invalid config at ${configSnapshot.path}.\n${issues}\nRun "${formatCliCommand("openclaw doctor")}" to repair, then retry.`,
+      `❌ Gateway startup failed: Configuration validation error\n\n` +
+        `Config file: ${configSnapshot.path}\n` +
+        `Issues:\n${issues}\n\n` +
+        `Why this matters: The gateway requires a valid configuration to start.\n` +
+        `Invalid config can lead to security issues, connection failures, or data loss.\n\n` +
+        `To fix: Run "${formatCliCommand("openclaw doctor --fix")}" to auto-repair,\n` +
+        `or manually edit the config file to fix the issues above.`,
     );
   }
 
