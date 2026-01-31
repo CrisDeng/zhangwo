@@ -5,7 +5,9 @@ set -euo pipefail
 # Outputs to dist/OpenClaw.app
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_ROOT="$ROOT_DIR/dist/OpenClaw.app"
+# Read display name from Info.plist (e.g. "掌握"), fallback to "OpenClaw"
+APP_DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleName" "$ROOT_DIR/apps/macos/Sources/OpenClaw/Resources/Info.plist" 2>/dev/null || echo "OpenClaw")
+APP_ROOT="$ROOT_DIR/dist/${APP_DISPLAY_NAME}.app"
 BUILD_ROOT="$ROOT_DIR/apps/macos/.build"
 PRODUCT="OpenClaw"
 BUNDLE_ID="${BUNDLE_ID:-ai.openclaw.mac.debug}"
@@ -201,7 +203,8 @@ else
 fi
 
 echo "🖼  Copying app icon"
-cp "$ROOT_DIR/apps/macos/Sources/OpenClaw/Resources/OpenClaw.icns" "$APP_ROOT/Contents/Resources/OpenClaw.icns"
+ICON_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleIconFile" "$ROOT_DIR/apps/macos/Sources/OpenClaw/Resources/Info.plist" 2>/dev/null || echo "OpenClaw")
+cp "$ROOT_DIR/apps/macos/Sources/OpenClaw/Resources/${ICON_NAME}.icns" "$APP_ROOT/Contents/Resources/${ICON_NAME}.icns"
 
 echo "📦 Copying device model resources"
 rm -rf "$APP_ROOT/Contents/Resources/DeviceModels"
