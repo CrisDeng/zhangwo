@@ -393,7 +393,7 @@ enum ProviderTemplates {
         id: "moonshot",
         name: "Moonshot AI (Kimi)",
         icon: "moon.stars",
-        description: "Kimi K2 系列模型，中国 AI 领先者",
+        description: "Kimi K2 系列大模型，兼容 OpenAI 接口",
         authTypes: [.apiKey],
         envKeys: ["MOONSHOT_API_KEY"],
         defaultModel: "moonshot/kimi-k2.5",
@@ -403,60 +403,56 @@ enum ProviderTemplates {
             ProviderModel(
                 id: "kimi-k2.5",
                 name: "Kimi K2.5",
-                description: "最新 Kimi 模型",
+                description: "最新 K2.5 多模态模型",
                 reasoning: false,
-                contextWindow: 256000,
+                contextWindow: 131072,
                 maxTokens: 8192,
                 isDefault: true
             ),
             ProviderModel(
-                id: "kimi-k2-thinking",
-                name: "Kimi K2 Thinking",
-                description: "推理增强版",
-                reasoning: true,
-                contextWindow: 256000,
+                id: "kimi-k2-0905-preview",
+                name: "Kimi K2 0905 Preview",
+                description: "K2 9月预览版",
+                reasoning: false,
+                contextWindow: 131072,
+                maxTokens: 8192
+            ),
+            ProviderModel(
+                id: "kimi-k2-0711-preview",
+                name: "Kimi K2 0711 Preview",
+                description: "K2 7月预览版",
+                reasoning: false,
+                contextWindow: 131072,
                 maxTokens: 8192
             ),
             ProviderModel(
                 id: "kimi-k2-turbo-preview",
-                name: "Kimi K2 Turbo",
-                description: "快速响应版",
+                name: "Kimi K2 Turbo Preview",
+                description: "K2 快速响应版",
                 reasoning: false,
-                contextWindow: 256000,
+                contextWindow: 131072,
+                maxTokens: 8192
+            ),
+            ProviderModel(
+                id: "kimi-k2-thinking",
+                name: "Kimi K2 Thinking",
+                description: "K2 深度推理版",
+                reasoning: true,
+                contextWindow: 131072,
+                maxTokens: 8192
+            ),
+            ProviderModel(
+                id: "kimi-k2-thinking-turbo",
+                name: "Kimi K2 Thinking Turbo",
+                description: "K2 快速推理版",
+                reasoning: true,
+                contextWindow: 131072,
                 maxTokens: 8192
             )
         ],
         documentationUrl: "https://platform.moonshot.cn/docs",
         apiKeyUrl: "https://platform.moonshot.cn/console/api-keys",
-        features: ["长上下文", "中文优化", "快速"]
-    )
-
-    // MARK: - Kimi Code
-
-    static let kimiCode = ProviderTemplate(
-        id: "kimi-code",
-        name: "Kimi Code",
-        icon: "chevron.left.forwardslash.chevron.right",
-        description: "Kimi 代码专用模型",
-        authTypes: [.apiKey],
-        envKeys: ["KIMICODE_API_KEY"],
-        defaultModel: "kimi-code/kimi-for-coding",
-        baseUrl: nil,
-        apiType: "openai-completions",
-        models: [
-            ProviderModel(
-                id: "kimi-for-coding",
-                name: "Kimi For Coding",
-                description: "代码生成优化",
-                reasoning: true,
-                contextWindow: 262144,
-                maxTokens: 32768,
-                isDefault: true
-            )
-        ],
-        documentationUrl: "https://platform.moonshot.cn/docs",
-        apiKeyUrl: "https://platform.moonshot.cn/console/api-keys",
-        features: ["代码优化", "长上下文", "推理能力"]
+        features: ["长上下文", "中文优化", "深度推理", "多模态"]
     )
 
     // MARK: - MiniMax
@@ -665,7 +661,6 @@ enum ProviderTemplates {
     static let all: [ProviderTemplate] = [
         deepseek,
         moonshot,
-        kimiCode,
         minimax,
         glm,
         qwen,
@@ -676,7 +671,6 @@ enum ProviderTemplates {
     static let recommended: [ProviderTemplate] = [
         deepseek,
         moonshot,
-        kimiCode,
         minimax,
         glm,
         qwen,
