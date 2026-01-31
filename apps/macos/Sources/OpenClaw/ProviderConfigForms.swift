@@ -418,9 +418,8 @@ struct ProviderConfigFormView: View {
            let providersDict = modelsDict["providers"] as? [String: Any],
            let providerConfig = providersDict[template.id] as? [String: Any] {
 
-            // 加载自定义 Base URL
-            if let baseUrl = providerConfig["baseUrl"] as? String,
-               baseUrl != template.baseUrl {
+            // 加载已配置的 Base URL（无论是否与模板默认值相同都显示）
+            if let baseUrl = providerConfig["baseUrl"] as? String {
                 customBaseUrl = baseUrl
             }
 
