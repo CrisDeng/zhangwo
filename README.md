@@ -1,6 +1,6 @@
 # 掌握 - QQ X OpenClaw 一键安装版
 
-一款基于 OpenClaw 的个人 AI 助手，支持通过 QQ 频道与 AI 进行交互。
+一款基于 OpenClaw 的个人 AI 助手，支持通过 QQBot 与 AI 进行交互。
 
 ## 📖 使用教程
 
