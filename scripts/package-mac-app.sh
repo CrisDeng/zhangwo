@@ -11,12 +11,44 @@ APP_ROOT="$ROOT_DIR/dist/${APP_DISPLAY_NAME}.app"
 BUILD_ROOT="$ROOT_DIR/apps/macos/.build"
 PRODUCT="OpenClaw"
 BUNDLE_ID="${BUNDLE_ID:-ai.openclaw.mac.debug}"
-PKG_VERSION="$(cd "$ROOT_DIR" && node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")"
 BUILD_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(cd "$ROOT_DIR" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-GIT_BUILD_NUMBER=$(cd "$ROOT_DIR" && git rev-list --count HEAD 2>/dev/null || echo "0")
-APP_VERSION="${APP_VERSION:-$PKG_VERSION}"
-APP_BUILD="${APP_BUILD:-$GIT_BUILD_NUMBER}"
+
+# Version management: read from scripts/version.json
+# Format: { "version": "0.0.2", "build": 1 }
+# Build number auto-increments; resets to 1 when version changes
+VERSION_FILE="$ROOT_DIR/scripts/version.json"
+if [[ -f "$VERSION_FILE" ]]; then
+  STORED_VERSION=$(node -p "require('$VERSION_FILE').version" 2>/dev/null || echo "0.0.1")
+  STORED_BUILD=$(node -p "require('$VERSION_FILE').build" 2>/dev/null || echo "0")
+else
+  STORED_VERSION="0.0.1"
+  STORED_BUILD=0
+fi
+
+# Allow override via environment, otherwise use stored version
+BASE_VERSION="${APP_VERSION:-$STORED_VERSION}"
+
+# If version changed, reset build number to 0 (will become 1 after increment)
+if [[ "$BASE_VERSION" != "$STORED_VERSION" ]]; then
+  STORED_BUILD=0
+fi
+
+# Increment build number
+NEW_BUILD=$((STORED_BUILD + 1))
+
+# Save updated version info back to file
+cat > "$VERSION_FILE" << EOF
+{
+  "version": "$BASE_VERSION",
+  "build": $NEW_BUILD
+}
+EOF
+echo "📌 Version: $BASE_VERSION.$NEW_BUILD (build #$NEW_BUILD)"
+
+# Final version string: version.build (e.g., 0.0.2.1)
+APP_VERSION="$BASE_VERSION.$NEW_BUILD"
+APP_BUILD="$NEW_BUILD"
 BUILD_CONFIG="${BUILD_CONFIG:-debug}"
 BUILD_ARCHS_VALUE="${BUILD_ARCHS:-$(uname -m)}"
 if [[ "${BUILD_ARCHS_VALUE}" == "all" ]]; then

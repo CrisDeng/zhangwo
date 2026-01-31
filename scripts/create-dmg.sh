@@ -37,7 +37,12 @@ APP_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleName" "$APP_PATH/Contents/I
 APP_BUNDLE_NAME=$(basename "$APP_PATH")  # e.g. "掌握.app" - actual folder name
 VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist" 2>/dev/null || echo "0.0.0")
 
-DMG_NAME="${APP_NAME}-${VERSION}.dmg"
+# Use pinyin name for DMG filename when app is 掌握
+if [[ "$APP_NAME" == "掌握" ]]; then
+  DMG_NAME="zhangwo-${VERSION}.dmg"
+else
+  DMG_NAME="${APP_NAME}-${VERSION}.dmg"
+fi
 DMG_VOLUME_NAME="${DMG_VOLUME_NAME:-$APP_NAME}"
 DMG_BACKGROUND_SMALL="${DMG_BACKGROUND_SMALL:-$ROOT_DIR/assets/dmg-background-small.png}"
 DMG_BACKGROUND_PATH="${DMG_BACKGROUND_PATH:-$ROOT_DIR/assets/dmg-background.png}"
