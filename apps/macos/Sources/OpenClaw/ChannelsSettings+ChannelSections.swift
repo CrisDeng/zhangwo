@@ -90,8 +90,8 @@ extension ChannelsSettings {
 
     var qqSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            self.formSection("关于 QQ bot") {
-                Text("QQ bot是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQ bot与 AI 助手进行交互。")
+            self.formSection("关于 QQBot") {
+                Text("QQBot 是腾讯 QQ 开放平台提供的机器人服务。配置完成后，您可以通过 QQBot 与 AI 助手进行交互。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
