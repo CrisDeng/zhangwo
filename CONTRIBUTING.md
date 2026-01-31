@@ -1,52 +1,42 @@
-# Contributing to OpenClaw
+# 参与贡献
 
-Welcome to the lobster tank! 🦞
+欢迎参与"掌握"项目的开发！🎉
 
-## Quick Links
-- **GitHub:** https://github.com/openclaw/openclaw
-- **Discord:** https://discord.gg/qkhbAGHRBT
-- **X/Twitter:** [@steipete](https://x.com/steipete) / [@openclaw](https://x.com/openclaw)
+## 快速链接
 
-## Maintainers
+- **GitHub:** https://github.com/CrisDeng/zhangwo
+- **使用教程:** https://docs.qq.com/doc/DSkFCZ3hVWVBuT2Jy
 
-- **Peter Steinberger** - Benevolent Dictator
-  - GitHub: [@steipete](https://github.com/steipete) · X: [@steipete](https://x.com/steipete)
+## 如何贡献
 
-- **Shadow** - Discord + Slack subsystem
-  - GitHub: [@thewilloftheshadow](https://github.com/thewilloftheshadow) · X: [@4shad0wed](https://x.com/4shad0wed)
+1. **Bug 修复** → 直接提交 PR
+2. **新功能** → 先开 Issue 讨论
+3. **文档改进** → 欢迎 PR
 
-- **Jos** - Telegram, API, Nix mode
-  - GitHub: [@joshp123](https://github.com/joshp123) · X: [@jjpcodes](https://x.com/jjpcodes)
+## 提交 PR 前
 
-## How to Contribute
-1. **Bugs & small fixes** → Open a PR!
-2. **New features / architecture** → Start a [GitHub Discussion](https://github.com/openclaw/openclaw/discussions) or ask in Discord first
-3. **Questions** → Discord #setup-help
+- 本地测试通过
+- 运行 lint：`pnpm lint`
+- 保持 PR 专注（一个 PR 只做一件事）
+- 描述清楚改动内容和原因
 
-## Before You PR
-- Test locally with your OpenClaw instance
-- Run linter: `npm run lint`
-- Keep PRs focused (one thing per PR)
-- Describe what & why
+## 开发环境
 
-## AI/Vibe-Coded PRs Welcome! 🤖
+```bash
+# 安装依赖
+pnpm install
 
-Built with Codex, Claude, or other AI tools? **Awesome - just mark it!**
+# 编译打包 (双架构)
+BUILD_ARCHS=all ./scripts/package-mac-app.sh
 
-Please include in your PR:
-- [ ] Mark as AI-assisted in the PR title or description
-- [ ] Note the degree of testing (untested / lightly tested / fully tested)
-- [ ] Include prompts or session logs if possible (super helpful!)
-- [ ] Confirm you understand what the code does
+# 创建 DMG
+./scripts/create-dmg.sh ./dist/掌握.app
+```
 
-AI PRs are first-class citizens here. We just want transparency so reviewers know what to look for.
+## 致谢
 
-## Current Focus & Roadmap 🗺
+感谢所有贡献者！
 
-We are currently prioritizing:
-- **Stability**: Fixing edge cases in channel connections (WhatsApp/Telegram).
-- **UX**: Improving the onboarding wizard and error messages.
-- **Skills**: Expanding the library of bundled skills and improving the Skill Creation developer experience.
-- **Performance**: Optimizing token usage and compaction logic.
-
-Check the [GitHub Issues](https://github.com/openclaw/openclaw/issues) for "good first issue" labels!
+本项目基于以下开源项目：
+- [OpenClaw](https://github.com/openclaw/openclaw)
+- [qqbot](https://github.com/sliverp/qqbot)
