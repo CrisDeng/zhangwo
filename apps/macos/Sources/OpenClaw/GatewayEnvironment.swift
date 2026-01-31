@@ -195,7 +195,7 @@ enum GatewayEnvironment {
            let bundledEntry = CommandResolver.bundledCLIEntrypoint() ?? CommandResolver.bundledCLIDistEntrypoint()
         {
             let port = self.gatewayPort()
-            let bind = self.preferredGatewayBind() ?? "loopback"
+            let bind = self.preferredGatewayBind() ?? "lan"
             let cmd = [bundledNode, bundledEntry, "gateway", "run", "--port", "\(port)", "--bind", bind]
             let expectedString = self.expectedGatewayVersionString()
             let status = GatewayEnvironmentStatus(
@@ -222,7 +222,7 @@ enum GatewayEnvironment {
 
         let port = self.gatewayPort()
         if let gatewayBin {
-            let bind = self.preferredGatewayBind() ?? "loopback"
+            let bind = self.preferredGatewayBind() ?? "lan"
             let cmd = [gatewayBin, "gateway", "run", "--port", "\(port)", "--bind", bind]
             return GatewayCommandResolution(status: status, command: cmd)
         }
@@ -230,7 +230,7 @@ enum GatewayEnvironment {
         if let entry = projectEntrypoint,
            case let .success(resolvedRuntime) = runtime
         {
-            let bind = self.preferredGatewayBind() ?? "loopback"
+            let bind = self.preferredGatewayBind() ?? "lan"
             let cmd = [resolvedRuntime.path, entry, "gateway", "run", "--port", "\(port)", "--bind", bind]
             return GatewayCommandResolution(status: status, command: cmd)
         }
@@ -238,7 +238,7 @@ enum GatewayEnvironment {
         return GatewayCommandResolution(status: status, command: nil)
     }
 
-    private static func preferredGatewayBind() -> String? {
+    static func preferredGatewayBind() -> String? {
         if CommandResolver.connectionModeIsRemote() {
             return nil
         }

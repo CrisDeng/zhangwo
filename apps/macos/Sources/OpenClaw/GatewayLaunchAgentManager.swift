@@ -62,12 +62,15 @@ enum GatewayLaunchAgentManager {
         }
 
         if enabled {
-            self.logger.info("launchd enable requested via CLI port=\(port)")
+            let bind = GatewayEnvironment.preferredGatewayBind() ?? "lan"
+            self.logger.info("launchd enable requested via CLI port=\(port) bind=\(bind)")
             return await self.runDaemonCommand([
                 "install",
                 "--force",
                 "--port",
                 "\(port)",
+                "--bind",
+                bind,
                 "--runtime",
                 "node",
             ])
@@ -98,6 +101,21 @@ enum GatewayLaunchAgentManager {
             return stderr
         }
         return LogLocator.launchdGatewayLogPath
+    }
+
+    /// Check if the daemon plist needs to be reinstalled due to bind mode mismatch.
+    /// Returns true if the current plist bind mode is "loopback" but the expected default is "lan".
+    static func needsBindModeUpdate() -> Bool {
+        guard let snapshot = self.launchdConfigSnapshot() else { return false }
+        let currentBind = snapshot.bind ?? "loopback"
+        let expectedBind = GatewayEnvironment.preferredGatewayBind() ?? "lan"
+        // Only trigger update if current is loopback and expected is lan
+        // This handles the migration from old default (loopback) to new default (lan)
+        if currentBind == "loopback" && expectedBind == "lan" {
+            self.logger.info("bind mode update needed: current=\(currentBind) expected=\(expectedBind)")
+            return true
+        }
+        return false
     }
 }
 

@@ -16,6 +16,7 @@ export type DaemonStatusOptions = {
 
 export type DaemonInstallOptions = {
   port?: string | number;
+  bind?: string;
   runtime?: string;
   token?: string;
   force?: boolean;

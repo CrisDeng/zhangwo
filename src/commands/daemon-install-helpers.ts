@@ -28,6 +28,7 @@ export function resolveGatewayDevMode(argv: string[] = process.argv): boolean {
 export async function buildGatewayInstallPlan(params: {
   env: Record<string, string | undefined>;
   port: number;
+  bind?: string;
   runtime: GatewayDaemonRuntime;
   token?: string;
   devMode?: boolean;
@@ -45,6 +46,7 @@ export async function buildGatewayInstallPlan(params: {
     }));
   const { programArguments, workingDirectory } = await resolveGatewayProgramArguments({
     port: params.port,
+    bind: params.bind,
     dev: devMode,
     runtime: params.runtime,
     nodePath,

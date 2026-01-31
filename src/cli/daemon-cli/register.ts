@@ -44,6 +44,7 @@ export function registerDaemonCli(program: Command) {
     .command("install")
     .description("Install the Gateway service (launchd/systemd/schtasks)")
     .option("--port <port>", "Gateway port")
+    .option("--bind <mode>", "Gateway bind mode (loopback|lan|tailnet|auto). Default: lan")
     .option("--runtime <runtime>", "Daemon runtime (node|bun). Default: node")
     .option("--token <token>", "Gateway token (token auth)")
     .option("--force", "Reinstall/overwrite if already installed", false)

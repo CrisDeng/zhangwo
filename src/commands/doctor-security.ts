@@ -18,7 +18,7 @@ export async function noteSecurityWarnings(cfg: OpenClawConfig) {
   // Check for dangerous gateway binding configurations
   // that expose the gateway to network without proper auth
 
-  const gatewayBind = (cfg.gateway?.bind ?? "loopback") as string;
+  const gatewayBind = (cfg.gateway?.bind ?? "lan") as string;
   const customBindHost = cfg.gateway?.customBindHost?.trim();
   const bindModes: GatewayBindMode[] = ["auto", "lan", "loopback", "custom", "tailnet"];
   const bindMode = bindModes.includes(gatewayBind as GatewayBindMode)

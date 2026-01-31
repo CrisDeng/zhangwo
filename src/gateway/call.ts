@@ -62,7 +62,7 @@ export function buildGatewayConnectionDetails(
   const tlsEnabled = config.gateway?.tls?.enabled === true;
   const localPort = resolveGatewayPort(config);
   const tailnetIPv4 = pickPrimaryTailnetIPv4();
-  const bindMode = config.gateway?.bind ?? "loopback";
+  const bindMode = config.gateway?.bind ?? "lan";
   const preferTailnet = bindMode === "tailnet" && !!tailnetIPv4;
   const scheme = tlsEnabled ? "wss" : "ws";
   const localUrl =
