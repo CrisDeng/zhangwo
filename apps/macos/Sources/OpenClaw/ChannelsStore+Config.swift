@@ -1,5 +1,8 @@
 import OpenClawProtocol
 import Foundation
+import os
+
+private let configLogger = Logger(subsystem: "ai.openclaw", category: "config.store")
 
 extension ChannelsStore {
     func loadConfigSchema() async {
@@ -34,6 +37,15 @@ extension ChannelsStore {
             self.configDraft = cloneConfigValue(self.configRoot) as? [String: Any] ?? self.configRoot
             self.configDirty = false
             self.configLoaded = true
+
+            // 调试日志：打印从 gateway 加载的 env
+            let envFromGateway = self.configDraft["env"] as? [String: Any] ?? [:]
+            configLogger.info("loadConfig: 从 gateway 加载的 env keys: \(envFromGateway.keys.sorted(), privacy: .public)")
+            for (key, value) in envFromGateway.sorted(by: { $0.key < $1.key }) {
+                let valueStr = (value as? String) ?? String(describing: value)
+                let isEmpty = (value as? String)?.isEmpty ?? false
+                configLogger.debug("  \(key, privacy: .public) isEmpty=\(isEmpty, privacy: .public)")
+            }
 
             self.applyUIConfig(snap)
         } catch {
@@ -77,8 +89,17 @@ extension ChannelsStore {
         self.configSaveResult = nil
         defer { self.isSavingConfig = false }
 
+        // 调试日志：打印保存前的 env
+        let envBeforeSave = self.configDraft["env"] as? [String: Any] ?? [:]
+        configLogger.info("saveConfigDraft: 保存前的 env keys: \(envBeforeSave.keys.sorted(), privacy: .public)")
+        for (key, value) in envBeforeSave.sorted(by: { $0.key < $1.key }) {
+            let isEmpty = (value as? String)?.isEmpty ?? false
+            configLogger.debug("  \(key, privacy: .public) isEmpty=\(isEmpty, privacy: .public)")
+        }
+
         do {
             try await ConfigStore.save(self.configDraft)
+            configLogger.info("saveConfigDraft: ConfigStore.save 完成，准备 loadConfig")
             await self.loadConfig()
             self.configSaveResult = .success
             self.showConfigSaveToast = true

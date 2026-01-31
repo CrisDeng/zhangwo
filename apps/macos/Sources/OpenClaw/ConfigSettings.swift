@@ -1,3 +1,4 @@
+import os
 import SwiftUI
 
 @MainActor
@@ -555,8 +556,18 @@ struct ModelsQuickSetupView: View {
             // }
         }
         .onAppear {
-            self.loadConfiguredProviders()
-            self.selectedModel = self.store.currentDefaultModel() ?? ""
+            // 仅在配置已加载时初始化，否则等 configLoaded 变化时再加载
+            if self.store.configLoaded {
+                self.loadConfiguredProviders()
+                self.selectedModel = self.store.currentDefaultModel() ?? ""
+            }
+        }
+        .onChange(of: self.store.configLoaded) { _, loaded in
+            // 配置加载完成后初始化数据
+            if loaded {
+                self.loadConfiguredProviders()
+                self.selectedModel = self.store.currentDefaultModel() ?? ""
+            }
         }
         .onChange(of: self.store.configDirty) { _, _ in
             self.loadConfiguredProviders()
@@ -845,10 +856,75 @@ struct ModelsQuickSetupView: View {
         return current
     }
 
+    private let logger = Logger(subsystem: "ai.openclaw", category: "config.quicksetup")
+
     private func deleteProvider(_ template: ProviderTemplate) {
-        // 清空该提供商的环境变量配置
+        self.logger.info("开始删除提供商: \(template.id, privacy: .public), envKeys: \(template.envKeys, privacy: .public)")
+
+        // 将环境变量设置为空字符串（因为 config.patch 是合并操作，设置 nil 不会真正删除）
+        // isProviderConfigured 检查 !value.isEmpty，所以空字符串会被视为未配置
         for envKey in template.envKeys {
-            self.store.setConfigValue(at: [.key("env"), .key(envKey)], value: nil)
+            self.logger.debug("设置 env.\(envKey, privacy: .public) = \"\"")
+            self.store.setConfigValue(at: [.key("env"), .key(envKey)], value: "")
+        }
+
+        // 打印设置后的 configDraft 中 env 的内容
+        let envAfterSet = self.store.configDraft["env"] as? [String: Any] ?? [:]
+        self.logger.debug("设置后 configDraft.env keys: \(envAfterSet.keys.sorted(), privacy: .public)")
+        self.logger.debug("configDirty = \(self.store.configDirty, privacy: .public)")
+
+        // 保存更改到磁盘，并检查是否需要切换默认模型
+        Task {
+            self.logger.info("Task 开始，准备保存...")
+            await self.store.saveConfigDraft()
+            self.logger.info("saveConfigDraft 完成")
+
+            // 打印保存后的 configDraft 中所有 env 值
+            let envAfterSave = self.store.configDraft["env"] as? [String: Any] ?? [:]
+            self.logger.info("保存后 configDraft.env 全部内容:")
+            for (key, value) in envAfterSave.sorted(by: { $0.key < $1.key }) {
+                let valueStr = (value as? String) ?? String(describing: value)
+                let isEmpty = (value as? String)?.isEmpty ?? false
+                self.logger.info("  \(key, privacy: .public) = '\(valueStr, privacy: .private)' (isEmpty: \(isEmpty, privacy: .public))")
+            }
+
+            self.loadConfiguredProviders()
+            self.logger.info("loadConfiguredProviders 完成，当前已配置: \(self.configuredProviders.map { $0.template.id }, privacy: .public)")
+
+            // 检查当前默认模型是否属于被删除的提供商
+            let currentModel = self.store.currentDefaultModel() ?? ""
+            let deletedProviderId = template.id
+            self.logger.info("当前默认模型: \(currentModel, privacy: .public), 被删除的提供商: \(deletedProviderId, privacy: .public)")
+
+            if currentModel.hasPrefix("\(deletedProviderId)/") {
+                self.logger.info("当前模型属于被删除的提供商，需要切换")
+
+                // 基于 configuredProviders 找到第一个可用的模型
+                // 不使用 availableModels 是因为它依赖 store.providerStatus() 可能有缓存问题
+                let remainingProviderIds = Set(self.configuredProviders.map { $0.template.id })
+                self.logger.info("剩余已配置的提供商: \(remainingProviderIds, privacy: .public)")
+
+                // 找到第一个剩余提供商的默认模型
+                var newModel: String?
+                for provider in self.configuredProviders {
+                    if let firstModel = provider.template.models.first {
+                        newModel = "\(provider.template.id)/\(firstModel.id)"
+                        break
+                    }
+                }
+
+                if let model = newModel {
+                    self.logger.info("切换到第一个可用模型: \(model, privacy: .public)")
+                    self.selectedModel = model
+                    // saveSelectedModel 会在 onChange 中自动触发
+                } else {
+                    self.logger.info("没有可用模型，清空选择")
+                    self.selectedModel = ""
+                }
+            } else {
+                self.logger.debug("当前模型不属于被删除的提供商，无需切换")
+            }
+            self.logger.info("删除流程完成")
         }
     }
 }
