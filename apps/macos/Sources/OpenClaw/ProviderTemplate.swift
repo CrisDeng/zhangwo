@@ -662,9 +662,6 @@ enum ProviderTemplates {
         deepseek,
         moonshot,
         minimax,
-        glm,
-        qwen,
-        xiaomi
     ]
 
     /// 常用/推荐的提供商模板
@@ -672,9 +669,6 @@ enum ProviderTemplates {
         deepseek,
         moonshot,
         minimax,
-        glm,
-        qwen,
-        xiaomi
     ]
 
     /// 根据 ID 获取模板
