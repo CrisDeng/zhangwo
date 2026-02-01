@@ -36,6 +36,24 @@ struct LaunchAgentPlistSnapshot: Equatable, Sendable {
     let bind: String?
     let token: String?
     let password: String?
+
+    /// Returns the CLI entry point path from ProgramArguments (typically the second element after node path).
+    /// For bundled runtime, this would be something like `/path/to/App.app/Contents/Resources/runtime/cli/openclaw.mjs`
+    /// For dev/homebrew, this would be a path outside the app bundle.
+    var cliEntryPath: String? {
+        // ProgramArguments is typically: [node_path, cli_entry_path, "gateway", "--port", ...]
+        guard self.programArguments.count >= 2 else { return nil }
+        return self.programArguments[1]
+    }
+
+    /// Check if the LaunchAgent is configured to use a CLI path inside the given app bundle.
+    func isUsingBundledRuntime(appBundlePath: String) -> Bool {
+        guard let cliPath = self.cliEntryPath else { return false }
+        // Normalize paths for comparison
+        let normalizedCliPath = (cliPath as NSString).standardizingPath
+        let normalizedBundlePath = (appBundlePath as NSString).standardizingPath
+        return normalizedCliPath.hasPrefix(normalizedBundlePath + "/")
+    }
 }
 
 enum LaunchAgentPlist {

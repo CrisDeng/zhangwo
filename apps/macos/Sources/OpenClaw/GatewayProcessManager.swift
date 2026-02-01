@@ -90,12 +90,28 @@ final class GatewayProcessManager {
         
         let enabled = await GatewayLaunchAgentManager.isLoaded()
         let needsBindUpdate = GatewayLaunchAgentManager.needsBindModeUpdate()
+        let bundlePath = Bundle.main.bundleURL.path
+        let needsPathUpdate = GatewayLaunchAgentManager.needsPathUpdate(currentBundlePath: bundlePath)
+        
+        // If daemon is already enabled but path needs update (e.g., new app version installed),
+        // reinstall it to point to the current app bundle
+        if enabled && needsPathUpdate {
+            self.logger.info("daemon CLI path update needed, reinstalling to use current bundle")
+            self.appendLog("[gateway] updating launchd job to use current app bundle\n")
+            let port = GatewayEnvironment.gatewayPort()
+            let err = await GatewayLaunchAgentManager.set(enabled: true, bundlePath: bundlePath, port: port)
+            if let err {
+                self.appendLog("[gateway] launchd path update failed: \(err)\n")
+            } else {
+                self.appendLog("[gateway] launchd path updated successfully\n")
+            }
+            return
+        }
         
         // If daemon is already enabled but bind mode needs update, reinstall it
         if enabled && needsBindUpdate {
             self.logger.info("daemon bind mode update needed, reinstalling")
             self.appendLog("[gateway] updating launchd job bind mode to lan\n")
-            let bundlePath = Bundle.main.bundleURL.path
             let port = GatewayEnvironment.gatewayPort()
             let err = await GatewayLaunchAgentManager.set(enabled: true, bundlePath: bundlePath, port: port)
             if let err {
@@ -107,7 +123,6 @@ final class GatewayProcessManager {
         }
         
         guard !enabled else { return }
-        let bundlePath = Bundle.main.bundleURL.path
         let port = GatewayEnvironment.gatewayPort()
         self.appendLog("[gateway] auto-enabling launchd job (\(gatewayLaunchdLabel)) on port \(port)\n")
         let err = await GatewayLaunchAgentManager.set(enabled: true, bundlePath: bundlePath, port: port)

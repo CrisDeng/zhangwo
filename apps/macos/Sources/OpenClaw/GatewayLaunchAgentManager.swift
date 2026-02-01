@@ -117,6 +117,63 @@ enum GatewayLaunchAgentManager {
         }
         return false
     }
+
+    /// Check if the daemon plist CLI path points to a different location than the current app bundle.
+    /// This detects when a user installs a new app version but the LaunchAgent still points to an old path.
+    /// Returns true if reinstallation is needed.
+    static func needsPathUpdate(currentBundlePath: String) -> Bool {
+        guard let snapshot = self.launchdConfigSnapshot() else {
+            // No plist exists, will be created fresh
+            return false
+        }
+
+        let cliPath = snapshot.cliEntryPath ?? ""
+        let normalizedBundlePath = (currentBundlePath as NSString).standardizingPath
+
+        // Check if the current app is running from a "production" location
+        // (i.e., /Applications or ~/Applications), meaning it's a distributed build
+        // that should use bundled runtime
+        let isProductionApp =
+            normalizedBundlePath.hasPrefix("/Applications/") ||
+            normalizedBundlePath.contains("/Applications/") ||
+            normalizedBundlePath.hasPrefix(
+                FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications").path)
+
+        // Check if the current app bundle has bundled runtime
+        let bundledCliPath = normalizedBundlePath + "/Contents/Resources/runtime/cli/openclaw.mjs"
+        let hasBundledRuntime = FileManager.default.fileExists(atPath: bundledCliPath)
+
+        // If running from production location with bundled runtime, plist should use the bundled CLI
+        if isProductionApp && hasBundledRuntime {
+            // Check if plist CLI path is already pointing to current bundle's runtime
+            let normalizedCliPath = (cliPath as NSString).standardizingPath
+            let expectedPrefix = normalizedBundlePath + "/Contents/Resources/runtime"
+
+            if !normalizedCliPath.hasPrefix(expectedPrefix) {
+                self.logger.info(
+                    "path update needed: production app with bundled runtime, but plist CLI path '\(cliPath)' " +
+                        "does not use current bundle's runtime (expected prefix: '\(expectedPrefix)')"
+                )
+                return true
+            }
+        }
+
+        // Check if plist is using a bundled runtime path from a different app bundle
+        let isBundledPath = cliPath.contains(".app/Contents/Resources/runtime")
+        if isBundledPath {
+            // It's a bundled path - verify it matches the current app bundle
+            if !snapshot.isUsingBundledRuntime(appBundlePath: currentBundlePath) {
+                self.logger.info(
+                    "path update needed: plist CLI path '\(cliPath)' does not match current bundle '\(currentBundlePath)'"
+                )
+                return true
+            }
+        }
+
+        // For non-bundled (dev/homebrew) setups running from dev locations, we don't auto-update
+        // This prevents the app from hijacking a manually configured dev environment
+        return false
+    }
 }
 
 extension GatewayLaunchAgentManager {
