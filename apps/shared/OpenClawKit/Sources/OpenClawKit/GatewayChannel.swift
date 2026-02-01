@@ -108,6 +108,10 @@ private enum ConnectChallengeError: Error {
     case timeout
 }
 
+private enum GatewayDeviceTokenError: Error {
+    case shouldRetryWithSharedToken
+}
+
 public actor GatewayChannelActor {
     private let logger = Logger(subsystem: "ai.openclaw", category: "gateway")
     private var task: WebSocketTaskBox?
@@ -211,6 +215,10 @@ public actor GatewayChannelActor {
     }
 
     public func connect() async throws {
+        try await connectInternal(forceSharedToken: false)
+    }
+
+    private func connectInternal(forceSharedToken: Bool) async throws {
         if self.connected, self.task?.state == .running { return }
         if self.isConnecting {
             try await withCheckedThrowingContinuation { cont in
@@ -233,7 +241,14 @@ public actor GatewayChannelActor {
                         code: 1,
                         userInfo: [NSLocalizedDescriptionKey: "connect timed out"])
                 },
-                operation: { try await self.sendConnect() })
+                operation: { try await self.sendConnectInternal(forceSharedToken: forceSharedToken) })
+        } catch let error as GatewayDeviceTokenError where error == .shouldRetryWithSharedToken {
+            // Device token auth failed, retry immediately with shared token
+            self.logger.info("device token auth failed, retrying with shared token")
+            self.task?.cancel(with: .goingAway, reason: nil)
+            self.isConnecting = false
+            try await self.connectInternal(forceSharedToken: true)
+            return
         } catch {
             let wrapped = self.wrap(error, context: "connect to gateway @ \(self.url.absoluteString)")
             self.connected = false
@@ -260,6 +275,10 @@ public actor GatewayChannelActor {
     }
 
     private func sendConnect() async throws {
+        try await sendConnectInternal(forceSharedToken: false)
+    }
+
+    private func sendConnectInternal(forceSharedToken: Bool) async throws {
         let platform = InstanceIdentity.platformString
         let primaryLocale = Locale.preferredLanguages.first ?? Locale.current.identifier
         let options = self.connectOptions ?? GatewayConnectOptions(
@@ -308,7 +327,8 @@ public actor GatewayChannelActor {
             params["permissions"] = ProtoAnyCodable(options.permissions)
         }
         let identity = DeviceIdentityStore.loadOrCreate()
-        let storedToken = DeviceAuthStore.loadToken(deviceId: identity.deviceId, role: role)?.token
+        // If forceSharedToken is true, skip device token lookup
+        let storedToken = forceSharedToken ? nil : DeviceAuthStore.loadToken(deviceId: identity.deviceId, role: role)?.token
         let authToken = storedToken ?? self.token
         let authSource: GatewayAuthSource
         if storedToken != nil {
@@ -321,8 +341,8 @@ public actor GatewayChannelActor {
             authSource = .none
         }
         self.lastAuthSource = authSource
-        self.logger.info("gateway connect auth=\(authSource.rawValue, privacy: .public)")
-        let canFallbackToShared = storedToken != nil && self.token != nil
+        self.logger.info("gateway connect auth=\(authSource.rawValue, privacy: .public) forceShared=\(forceSharedToken, privacy: .public)")
+        let canFallbackToShared = !forceSharedToken && storedToken != nil && self.token != nil
         if let authToken {
             params["auth"] = ProtoAnyCodable(["token": ProtoAnyCodable(authToken)])
         } else if let password = self.password {
@@ -371,7 +391,11 @@ public actor GatewayChannelActor {
             try await self.handleConnectResponse(response, identity: identity, role: role)
         } catch {
             if canFallbackToShared {
+                // Clear the invalid device token so next connection attempt uses shared token
+                self.logger.info("device token auth failed, clearing token for next attempt")
                 DeviceAuthStore.clearToken(deviceId: identity.deviceId, role: role)
+                // Throw a specific error that indicates fallback should be attempted
+                throw GatewayDeviceTokenError.shouldRetryWithSharedToken
             }
             throw error
         }

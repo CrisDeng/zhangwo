@@ -578,6 +578,9 @@ export function attachGatewayWsMessageHandler(params: {
         let authMethod =
           authResult.method ?? (resolvedAuth.mode === "password" ? "password" : "token");
         if (!authOk && connectParams.auth?.token && device) {
+          logGateway.info(
+            `device-token fallback: attempting deviceId=${device.id} role=${role} scopes=${scopes.join(",")}`,
+          );
           const tokenCheck = await verifyDeviceToken({
             deviceId: device.id,
             token: connectParams.auth.token,
@@ -587,7 +590,17 @@ export function attachGatewayWsMessageHandler(params: {
           if (tokenCheck.ok) {
             authOk = true;
             authMethod = "device-token";
+            logGateway.info(`device-token fallback: succeeded deviceId=${device.id}`);
+          } else {
+            logGateway.info(
+              `device-token fallback: failed deviceId=${device.id} reason=${tokenCheck.reason ?? "unknown"}`,
+            );
           }
+        } else if (!authOk && connectParams.auth?.token) {
+          // Log why device-token fallback was skipped
+          logGateway.info(
+            `device-token fallback: skipped (device=${device ? "present" : "missing"})`,
+          );
         }
         if (!authOk) {
           setHandshakeState("failed");
