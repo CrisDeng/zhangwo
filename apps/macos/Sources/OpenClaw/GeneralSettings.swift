@@ -382,8 +382,17 @@ struct GeneralSettings: View {
                     .foregroundStyle(.red)
             }
 
-            Button("重新检查") { self.refreshGatewayStatus() }
-                .buttonStyle(.bordered)
+            HStack(spacing: 8) {
+                Button("重新检查") { self.refreshGatewayStatus() }
+                    .buttonStyle(.bordered)
+                
+                if self.isConfigurationError {
+                    Button("修复配置") {
+                        self.showConfigFixAlert()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
 
             Text("网关在本地模式下通过 launchd (\(gatewayLaunchdLabel)) 自动启动。")
                 .font(.caption)
@@ -518,7 +527,14 @@ extension GeneralSettings {
 
             HStack(spacing: 10) {
                 Button("立即重试") {
-                    Task { await HealthStore.shared.refresh(onDemand: true) }
+                    Task {
+                        // 检测是否是配置错误
+                        if self.isConfigurationError {
+                            self.showConfigFixAlert()
+                        } else {
+                            await HealthStore.shared.refresh(onDemand: true)
+                        }
+                    }
                 }
                 .disabled(self.healthStore.isRefreshing)
 
@@ -684,6 +700,75 @@ extension GeneralSettings {
                 port: gateway.sshPort)
             self.state.remoteCliPath = gateway.cliPath ?? ""
             OpenClawConfigFile.setRemoteGatewayUrl(host: host, port: gateway.gatewayPort)
+        }
+    }
+
+    // MARK: - Configuration Error Detection
+
+    /// 检测是否是配置错误导致 Gateway 启动失败
+    private var isConfigurationError: Bool {
+        // 检查 GatewayProcessManager 的失败原因
+        if let failure = self.gatewayManager.lastFailureReason {
+            let lower = failure.lowercased()
+            if lower.contains("invalid config") ||
+                lower.contains("configuration error") ||
+                lower.contains("baseurl") ||
+                lower.contains("missing required field") ||
+                lower.contains("expected string, received undefined")
+            {
+                return true
+            }
+        }
+
+        // 检查 HealthStore 的错误信息
+        if let error = self.healthStore.lastError {
+            let lower = error.lowercased()
+            if lower.contains("invalid config") ||
+                lower.contains("configuration") ||
+                lower.contains("baseurl")
+            {
+                return true
+            }
+        }
+
+        // 检查 Gateway 状态
+        if case let .failed(reason) = self.gatewayManager.status {
+            let lower = reason.lowercased()
+            if lower.contains("invalid config") ||
+                lower.contains("configuration error") ||
+                lower.contains("baseurl")
+            {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /// 显示配置修复提示弹窗
+    private func showConfigFixAlert() {
+        let alert = NSAlert()
+        alert.messageText = "设置有问题，需要重新配置"
+        alert.informativeText = """
+        服务无法启动，因为之前添加的 AI 模型设置不完整。
+
+        最简单的解决方法：
+        点击下方「去设置」按钮，把有问题的 AI 模型删掉，或者重新填写完整信息。
+
+        哪些模型可能有问题？
+        比如 DeepSeek、Moonshot 等，如果你之前添加了但没填完，就会导致这个问题。
+        """
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "去设置")
+        alert.addButton(withTitle: "稍后再说")
+
+        let response = alert.runModal()
+
+        if response == .alertFirstButtonReturn {
+            // 打开配置设置页面
+            NotificationCenter.default.post(
+                name: .openclawSelectSettingsTab,
+                object: SettingsTab.config)
         }
     }
 }
