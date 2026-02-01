@@ -35,6 +35,10 @@
 	<string>15.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSSupportsSuddenTermination</key>
+	<false/>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
 	<key>OpenClawBuildTimestamp</key>
 	<string></string>
 	<key>OpenClawGitCommit</key>
