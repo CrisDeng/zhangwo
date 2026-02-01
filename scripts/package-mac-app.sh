@@ -4,10 +4,12 @@ set -euo pipefail
 # Build and bundle OpenClaw into a minimal .app we can open.
 # Outputs to dist/OpenClaw.app
 
+# Record start time for duration calculation
+START_TIME=$(date +%s)
+
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 # Read display name from Info.plist (e.g. "掌握"), fallback to "OpenClaw"
 APP_DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleName" "$ROOT_DIR/apps/macos/Sources/OpenClaw/Resources/Info.plist" 2>/dev/null || echo "OpenClaw")
-APP_ROOT="$ROOT_DIR/dist/${APP_DISPLAY_NAME}.app"
 BUILD_ROOT="$ROOT_DIR/apps/macos/.build"
 PRODUCT="OpenClaw"
 BUNDLE_ID="${BUNDLE_ID:-ai.openclaw.mac.debug}"
@@ -49,6 +51,12 @@ echo "📌 Version: $BASE_VERSION.$NEW_BUILD (build #$NEW_BUILD)"
 # Final version string: version.build (e.g., 0.0.2.1)
 APP_VERSION="$BASE_VERSION.$NEW_BUILD"
 APP_BUILD="$NEW_BUILD"
+
+# Create versioned output directory under dist/
+DIST_VERSION_DIR="$ROOT_DIR/dist/$APP_VERSION"
+mkdir -p "$DIST_VERSION_DIR"
+APP_ROOT="$DIST_VERSION_DIR/${APP_DISPLAY_NAME}.app"
+echo "📁 Output directory: $DIST_VERSION_DIR"
 BUILD_CONFIG="${BUILD_CONFIG:-debug}"
 BUILD_ARCHS_VALUE="${BUILD_ARCHS:-$(uname -m)}"
 if [[ "${BUILD_ARCHS_VALUE}" == "all" ]]; then
@@ -301,4 +309,13 @@ killall -q OpenClaw 2>/dev/null || true
 echo "🔏 Signing bundle (auto-selects signing identity if SIGN_IDENTITY is unset)"
 "$ROOT_DIR/scripts/codesign-mac-app.sh" "$APP_ROOT"
 
+# Calculate and display timing information
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+MINUTES=$((DURATION / 60))
+SECONDS=$((DURATION % 60))
+FINISH_TIME=$(date "+%Y-%m-%d %H:%M:%S")
+
 echo "✅ Bundle ready at $APP_ROOT"
+echo "⏱  完成时间: $FINISH_TIME"
+echo "⏱  打包耗时: ${MINUTES}分${SECONDS}秒"

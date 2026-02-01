@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Record start time for duration calculation
+START_TIME=$(date +%s)
+
 # Create a styled DMG containing the app bundle + /Applications symlink.
 #
 # Usage:
@@ -31,11 +34,14 @@ fi
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/dist"
-mkdir -p "$BUILD_DIR"
 
 APP_NAME=$(/usr/libexec/PlistBuddy -c "Print CFBundleName" "$APP_PATH/Contents/Info.plist" 2>/dev/null || echo "OpenClaw")
 APP_BUNDLE_NAME=$(basename "$APP_PATH")  # e.g. "掌握.app" - actual folder name
 VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist" 2>/dev/null || echo "0.0.0")
+
+# Create versioned output directory
+VERSION_DIR="$BUILD_DIR/$VERSION"
+mkdir -p "$VERSION_DIR"
 
 # Use pinyin name for DMG filename when app is 掌握
 if [[ "$APP_NAME" == "掌握" ]]; then
@@ -65,7 +71,7 @@ to_applescript_pair() {
 }
 
 if [[ -z "$OUT_PATH" ]]; then
-  OUT_PATH="$BUILD_DIR/$DMG_NAME"
+  OUT_PATH="$VERSION_DIR/$DMG_NAME"
 fi
 
 echo "Creating DMG: $OUT_PATH"
@@ -197,4 +203,14 @@ hdiutil convert "$DMG_RW_PATH" -format ULMO -o "$OUT_PATH" -ov
 rm -f "$DMG_RW_PATH"
 
 hdiutil verify "$OUT_PATH" >/dev/null
+
+# Calculate and display timing information
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+MINUTES=$((DURATION / 60))
+SECONDS=$((DURATION % 60))
+FINISH_TIME=$(date "+%Y-%m-%d %H:%M:%S")
+
 echo "✅ DMG ready: $OUT_PATH"
+echo "⏱  完成时间: $FINISH_TIME"
+echo "⏱  DMG制作耗时: ${MINUTES}分${SECONDS}秒"
