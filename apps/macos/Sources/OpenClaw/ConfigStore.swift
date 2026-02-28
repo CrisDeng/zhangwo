@@ -2,11 +2,24 @@ import OpenClawProtocol
 import Foundation
 
 enum ConfigStore {
+    /// Error thrown when Gateway is unavailable
+    enum ConfigError: LocalizedError {
+        case gatewayUnavailable(String)
+        case encodingFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .gatewayUnavailable(let reason):
+                return "Gateway 不可用: \(reason)"
+            case .encodingFailed:
+                return "配置编码失败"
+            }
+        }
+    }
+
     struct Overrides: Sendable {
         var isRemoteMode: (@Sendable () async -> Bool)?
-        var loadLocal: (@MainActor @Sendable () -> [String: Any])?
-        var saveLocal: (@MainActor @Sendable ([String: Any]) -> Void)?
-        var loadRemote: (@MainActor @Sendable () async -> [String: Any])?
+        var loadRemote: (@MainActor @Sendable () async throws -> [String: Any])?
         var saveRemote: (@MainActor @Sendable ([String: Any]) async throws -> Void)?
     }
 
@@ -29,75 +42,31 @@ enum ConfigStore {
         return await MainActor.run { AppStateStore.shared.connectionMode == .remote }
     }
 
+    /// Loads config from Gateway. Throws if Gateway is unavailable.
+    /// No local fallback - Gateway is the single source of truth for channels/models config.
     @MainActor
-    static func load() async -> [String: Any] {
+    static func load() async throws -> [String: Any] {
         let overrides = await self.overrideStore.overrides
-        if await self.isRemoteMode() {
-            if let override = overrides.loadRemote {
-                return await override()
-            }
-            return await self.loadFromGateway() ?? [:]
+        if let override = overrides.loadRemote {
+            return try await override()
         }
-        if let override = overrides.loadLocal {
-            return override()
-        }
-        if let gateway = await self.loadFromGateway() {
-            return gateway
-        }
-        return OpenClawConfigFile.loadDict()
+        return try await self.loadFromGateway()
     }
 
+    /// Saves config to Gateway. Throws if Gateway is unavailable.
+    /// No local fallback - Gateway is the single source of truth for channels/models config.
     @MainActor
     static func save(_ root: sending [String: Any]) async throws {
         let overrides = await self.overrideStore.overrides
-        if await self.isRemoteMode() {
-            if let override = overrides.saveRemote {
-                try await override(root)
-            } else {
-                try await self.saveToGateway(root)
-            }
+        if let override = overrides.saveRemote {
+            try await override(root)
         } else {
-            if let override = overrides.saveLocal {
-                override(root)
-            } else {
-                do {
-                    try await self.saveToGateway(root)
-                } catch {
-                    // Fallback: merge with existing config instead of overwriting
-                    self.saveLocalMerged(root)
-                }
-            }
+            try await self.saveToGateway(root)
         }
     }
 
-    /// Saves config locally by merging with existing config (incremental update).
-    /// This prevents accidentally overwriting the entire config file when gateway is unavailable.
     @MainActor
-    private static func saveLocalMerged(_ patch: [String: Any]) {
-        let existing = OpenClawConfigFile.loadDict()
-        let merged = Self.deepMerge(existing, patch)
-        OpenClawConfigFile.saveDict(merged)
-    }
-
-    /// Deep merge two dictionaries. Values from `patch` override values in `base`.
-    /// Nested dictionaries are merged recursively.
-    private static func deepMerge(_ base: [String: Any], _ patch: [String: Any]) -> [String: Any] {
-        var result = base
-        for (key, patchValue) in patch {
-            if let patchDict = patchValue as? [String: Any],
-               let baseDict = base[key] as? [String: Any] {
-                // Recursively merge nested dictionaries
-                result[key] = Self.deepMerge(baseDict, patchDict)
-            } else {
-                // Overwrite with patch value
-                result[key] = patchValue
-            }
-        }
-        return result
-    }
-
-    @MainActor
-    private static func loadFromGateway() async -> [String: Any]? {
+    private static func loadFromGateway() async throws -> [String: Any] {
         do {
             let snap: ConfigSnapshot = try await GatewayConnection.shared.requestDecoded(
                 method: .configGet,
@@ -106,20 +75,23 @@ enum ConfigStore {
             self.lastHash = snap.hash
             return snap.config?.mapValues { $0.foundationValue } ?? [:]
         } catch {
-            return nil
+            throw ConfigError.gatewayUnavailable(error.localizedDescription)
         }
     }
 
     @MainActor
     private static func saveToGateway(_ root: [String: Any]) async throws {
         if self.lastHash == nil {
-            _ = await self.loadFromGateway()
+            _ = try? await self.loadFromGateway()
         }
-        let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
+        let data: Data
+        do {
+            data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
+        } catch {
+            throw ConfigError.encodingFailed
+        }
         guard let raw = String(data: data, encoding: .utf8) else {
-            throw NSError(domain: "ConfigStore", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Failed to encode config.",
-            ])
+            throw ConfigError.encodingFailed
         }
         var params: [String: AnyCodable] = ["raw": AnyCodable(raw)]
         if let baseHash = self.lastHash {
@@ -127,11 +99,15 @@ enum ConfigStore {
         }
         // Use config.patch instead of config.set to merge with existing config
         // rather than completely overwriting it
-        _ = try await GatewayConnection.shared.requestRaw(
-            method: .configPatch,
-            params: params,
-            timeoutMs: 10000)
-        _ = await self.loadFromGateway()
+        do {
+            _ = try await GatewayConnection.shared.requestRaw(
+                method: .configPatch,
+                params: params,
+                timeoutMs: 10000)
+            _ = try await self.loadFromGateway()
+        } catch {
+            throw ConfigError.gatewayUnavailable(error.localizedDescription)
+        }
     }
 
     #if DEBUG

@@ -1,0 +1,56 @@
+{
+  "id": "memory-qmd",
+  "kind": "memory",
+  "uiHints": {
+    "collections": {
+      "label": "Collections",
+      "help": "Directories to index (format: path:name, e.g. ~/notes:notes)"
+    },
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "help": "Automatically inject relevant QMD search results into agent context"
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "help": "Automatically index MEMORY.md and memory/*.md files into QMD"
+    },
+    "searchMode": {
+      "label": "Search Mode",
+      "help": "Default search mode: query (hybrid, best quality), vsearch (semantic), search (keyword)"
+    },
+    "maxResults": {
+      "label": "Max Results",
+      "help": "Maximum number of search results to return (default: 5)"
+    },
+    "minScore": {
+      "label": "Min Score",
+      "help": "Minimum relevance score threshold 0.0-1.0 (default: 0.3)"
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "collections": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "autoRecall": {
+        "type": "boolean"
+      },
+      "autoCapture": {
+        "type": "boolean"
+      },
+      "searchMode": {
+        "type": "string",
+        "enum": ["query", "vsearch", "search"]
+      },
+      "maxResults": {
+        "type": "number"
+      },
+      "minScore": {
+        "type": "number"
+      }
+    }
+  }
+}

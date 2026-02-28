@@ -1,0 +1,17 @@
+{
+  "name": "@openclaw/memory-qmd",
+  "version": "2026.2.10",
+  "type": "module",
+  "description": "OpenClaw QMD-backed local memory plugin with hybrid search (BM25 + vector + LLM reranking)",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.1.26"
+  },
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  }
+}

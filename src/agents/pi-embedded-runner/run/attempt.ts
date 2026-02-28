@@ -679,14 +679,18 @@ export async function runEmbeddedAttempt(
       // Get hook runner once for both before_agent_start and agent_end hooks
       const hookRunner = getGlobalHookRunner();
 
+      let pluginContextChars: number | undefined;
       let promptError: unknown = null;
       try {
         const promptStartedAt = Date.now();
 
         // Run before_agent_start hooks to allow plugins to inject context
         let effectivePrompt = params.prompt;
-        if (hookRunner?.hasHooks("before_agent_start")) {
+        const hasBeforeHooks = hookRunner?.hasHooks("before_agent_start") ?? false;
+        log.info(`before_agent_start: hasHooks=${hasBeforeHooks}`);
+        if (hasBeforeHooks && hookRunner) {
           try {
+            log.info("before_agent_start: calling runBeforeAgentStart...");
             const hookResult = await hookRunner.runBeforeAgentStart(
               {
                 prompt: params.prompt,
@@ -701,9 +705,12 @@ export async function runEmbeddedAttempt(
             );
             if (hookResult?.prependContext) {
               effectivePrompt = `${hookResult.prependContext}\n\n${params.prompt}`;
-              log.debug(
-                `hooks: prepended context to prompt (${hookResult.prependContext.length} chars)`,
+              pluginContextChars = hookResult.prependContext.length;
+              log.info(
+                `before_agent_start: prepended context (${hookResult.prependContext.length} chars)`,
               );
+            } else {
+              log.info("before_agent_start: no prependContext returned");
             }
           } catch (hookErr) {
             log.warn(`before_agent_start hook failed: ${String(hookErr)}`);
@@ -870,6 +877,8 @@ export async function runEmbeddedAttempt(
         ),
         // Client tool call detected (OpenResponses hosted tools)
         clientToolCall: clientToolCallDetected ?? undefined,
+        // Characters injected by plugins (e.g. QMD auto-recall)
+        pluginContextChars,
       };
     } finally {
       // Always tear down the session (and release the lock) before we leave this attempt.

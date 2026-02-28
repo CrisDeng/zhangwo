@@ -1,5 +1,6 @@
 import type { loadConfig } from "../config/config.js";
 import { loadOpenClawPlugins } from "../plugins/loader.js";
+import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
 import type { GatewayRequestHandler } from "./server-methods/types.js";
 
 export function loadGatewayPlugins(params: {
@@ -45,5 +46,13 @@ export function loadGatewayPlugins(params: {
       }
     }
   }
+
+  // Debug: log hook registration status
+  const hookRunner = getGlobalHookRunner();
+  const beforeAgentStartHookCount = hookRunner?.getHookCount("before_agent_start") ?? 0;
+  params.log.info(
+    `[plugins] hook runner initialized, before_agent_start hooks: ${beforeAgentStartHookCount}`,
+  );
+
   return { pluginRegistry, gatewayMethods };
 }

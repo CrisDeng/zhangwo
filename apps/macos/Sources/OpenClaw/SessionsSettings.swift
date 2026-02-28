@@ -132,6 +132,12 @@ struct SessionsSettings: View {
                 }
                 self.label(icon: "arrow.down.left", text: "\(row.tokens.input) in")
                 self.label(icon: "arrow.up.right", text: "\(row.tokens.output) out")
+                // Show QMD-injected context if present
+                if let pluginTokens = row.tokens.pluginContextTokensEstimate {
+                    self.label(icon: "brain.head.profile", text: "~\(pluginTokens) QMD")
+                        .foregroundStyle(.purple)
+                        .help("QMD 自动召回注入的上下文（估算 Token）")
+                }
                 if let sessionId = row.sessionId, !sessionId.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "number").foregroundStyle(.secondary).font(.caption)

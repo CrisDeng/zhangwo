@@ -80,6 +80,47 @@ export function resolveLinuxUserBinDirs(
   return dirs;
 }
 
+/**
+ * Resolve common user bin directories for macOS.
+ * These are paths where Homebrew, npm global installs, and other tools place binaries.
+ */
+export function resolveMacOSUserBinDirs(
+  home: string | undefined,
+  env?: Record<string, string | undefined>,
+): string[] {
+  if (!home) return [];
+
+  const dirs: string[] = [];
+
+  const add = (dir: string | undefined) => {
+    if (dir) dirs.push(dir);
+  };
+  const appendSubdir = (base: string | undefined, subdir: string) => {
+    if (!base) return undefined;
+    return base.endsWith(`/${subdir}`) ? base : path.posix.join(base, subdir);
+  };
+
+  // Env-configured bin roots (override defaults when present).
+  add(env?.PNPM_HOME);
+  add(appendSubdir(env?.BUN_INSTALL, "bin"));
+  add(appendSubdir(env?.VOLTA_HOME, "bin"));
+  add(appendSubdir(env?.NVM_DIR, "current/bin"));
+  add(appendSubdir(env?.FNM_DIR, "current/bin"));
+
+  // Common user bin directories for macOS
+  dirs.push(`${home}/Library/pnpm`); // pnpm global bin (macOS default)
+  dirs.push(`${home}/.bun/bin`); // Bun - for QMD and other bun-installed tools
+  dirs.push(`${home}/.local/bin`); // XDG standard
+  dirs.push(`${home}/bin`); // User's personal bin
+
+  // Node version managers
+  dirs.push(`${home}/.nvm/current/bin`); // nvm with current symlink
+  dirs.push(`${home}/.fnm/current/bin`); // fnm
+  dirs.push(`${home}/.volta/bin`); // Volta
+
+  return dirs;
+}
+
 export function getMinimalServicePathParts(options: MinimalServicePathOptions = {}): string[] {
   const platform = options.platform ?? process.platform;
   if (platform === "win32") return [];
@@ -92,14 +133,26 @@ export function getMinimalServicePathParts(options: MinimalServicePathOptions = 
   const linuxUserDirs =
     platform === "linux" ? resolveLinuxUserBinDirs(options.home, options.env) : [];
 
+  // Add macOS user bin directories (pnpm, bun, nvm, fnm, volta, etc.)
+  const macosUserDirs =
+    platform === "darwin" ? resolveMacOSUserBinDirs(options.home, options.env) : [];
+
   const add = (dir: string) => {
     if (!dir) return;
     if (!parts.includes(dir)) parts.push(dir);
   };
 
+  // Add bundled CLI path first (highest priority) if provided via environment
+  // This allows AI agent tools (exec/shell) to find the bundled `openclaw` CLI
+  const bundledCliPath = options.env?.OPENCLAW_BUNDLED_CLI_PATH;
+  if (bundledCliPath) {
+    add(bundledCliPath);
+  }
+
   for (const dir of extraDirs) add(dir);
   // User dirs first so user-installed binaries take precedence
   for (const dir of linuxUserDirs) add(dir);
+  for (const dir of macosUserDirs) add(dir);
   for (const dir of systemDirs) add(dir);
 
   return parts;
@@ -138,6 +191,9 @@ export function buildServiceEnvironment(params: {
   const systemdUnit = `${resolveGatewaySystemdServiceName(profile)}.service`;
   const stateDir = env.OPENCLAW_STATE_DIR;
   const configPath = env.OPENCLAW_CONFIG_PATH;
+  // Bundled directories (macOS app passes these so daemon can find bundled plugins/skills)
+  const bundledPluginsDir = env.OPENCLAW_BUNDLED_PLUGINS_DIR;
+  const bundledSkillsDir = env.OPENCLAW_BUNDLED_SKILLS_DIR;
   return {
     HOME: env.HOME,
     PATH: buildMinimalServicePath({ env }),
@@ -151,6 +207,9 @@ export function buildServiceEnvironment(params: {
     OPENCLAW_SERVICE_MARKER: GATEWAY_SERVICE_MARKER,
     OPENCLAW_SERVICE_KIND: GATEWAY_SERVICE_KIND,
     OPENCLAW_SERVICE_VERSION: VERSION,
+    // Pass bundled directories to daemon so it can discover bundled plugins and skills
+    OPENCLAW_BUNDLED_PLUGINS_DIR: bundledPluginsDir,
+    OPENCLAW_BUNDLED_SKILLS_DIR: bundledSkillsDir,
   };
 }
 

@@ -105,4 +105,6 @@ export type EmbeddedRunAttemptResult = {
   cloudCodeAssistFormatError: boolean;
   /** Client tool call detected (OpenResponses hosted tools). */
   clientToolCall?: { name: string; params: Record<string, unknown> };
+  /** Characters injected by plugins (e.g. QMD auto-recall) into the prompt context. */
+  pluginContextChars?: number;
 };

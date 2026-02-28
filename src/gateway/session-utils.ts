@@ -580,6 +580,7 @@ export function listSessionsFromStore(params: {
         inputTokens: entry?.inputTokens,
         outputTokens: entry?.outputTokens,
         totalTokens: total,
+        pluginContextChars: entry?.pluginContextChars,
         responseUsage: entry?.responseUsage,
         modelProvider: entry?.modelProvider,
         model: entry?.model,

@@ -33,6 +33,8 @@ export type GatewaySessionRow = {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  /** Characters injected by plugins (e.g. QMD auto-recall) into the prompt context. */
+  pluginContextChars?: number;
   responseUsage?: "on" | "off" | "tokens" | "full";
   modelProvider?: string;
   model?: string;

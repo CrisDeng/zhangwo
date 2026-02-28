@@ -274,6 +274,16 @@ final class GatewayProcessManager {
                     continue
                 }
 
+                // If auth failed (token mismatch), clean up and restart rather than staying failed.
+                // This handles the case where a new app version has a different token than
+                // an old gateway process that's still running.
+                if self.isGatewayAuthFailure(error) {
+                    self.logger.info("Auth failure detected, will clean up and restart gateway")
+                    self.appendLog("[gateway] auth failure on port \(port), cleaning up and restarting\n")
+                    self.existingGatewayDetails = nil
+                    return false  // Fall through to enableLaunchdGateway() which will clean up
+                }
+
                 if hasListener {
                     let reason = self.describeAttachFailure(error, port: port, instance: instance)
                     self.existingGatewayDetails = instanceText
@@ -380,6 +390,11 @@ final class GatewayProcessManager {
             self.logger.warning("Gateway launchd startup skipped: launchd disabled marker set")
             return
         }
+
+        // Clean up legacy LaunchAgents and orphan processes before starting fresh
+        self.logger.info("Cleaning up legacy gateway services")
+        self.appendLog("[gateway] cleaning up legacy services\n")
+        await GatewayLaunchAgentManager.cleanupLegacyGateway()
 
         let bundlePath = Bundle.main.bundleURL.path
         let port = GatewayEnvironment.gatewayPort()

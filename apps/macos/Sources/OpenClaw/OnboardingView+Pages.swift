@@ -867,7 +867,7 @@ extension OnboardingView {
 
         do {
             // 1. 加载当前配置
-            var root = await ConfigStore.load()
+            var root = try await ConfigStore.load()
 
             // 2. 获取或创建 channels 字典
             var channels = root["channels"] as? [String: Any] ?? [:]

@@ -24,6 +24,7 @@ struct GatewaySessionEntryRecord: Codable {
     let totalTokens: Int?
     let model: String?
     let contextTokens: Int?
+    let pluginContextChars: Int?
 }
 
 struct GatewaySessionsListResponse: Codable {
@@ -39,6 +40,8 @@ struct SessionTokenStats {
     let output: Int
     let total: Int
     let contextTokens: Int
+    /// Characters injected by plugins (e.g. QMD auto-recall) into the prompt context.
+    let pluginContextChars: Int?
 
     var contextSummaryShort: String {
         "\(Self.formatKTokens(self.total))/\(Self.formatKTokens(self.contextTokens))"
@@ -47,6 +50,12 @@ struct SessionTokenStats {
     var percentUsed: Int? {
         guard self.contextTokens > 0, self.total > 0 else { return nil }
         return min(100, Int(round((Double(self.total) / Double(self.contextTokens)) * 100)))
+    }
+
+    /// Estimated tokens from plugin-injected context (rough estimate: 1 token ≈ 4 chars)
+    var pluginContextTokensEstimate: Int? {
+        guard let chars = self.pluginContextChars, chars > 0 else { return nil }
+        return chars / 4
     }
 
     var summary: String {
@@ -151,7 +160,7 @@ extension SessionRow {
                 verboseLevel: "info",
                 systemSent: false,
                 abortedLastRun: false,
-                tokens: SessionTokenStats(input: 320, output: 680, total: 1000, contextTokens: 200_000),
+                tokens: SessionTokenStats(input: 320, output: 680, total: 1000, contextTokens: 200_000, pluginContextChars: nil),
                 model: "claude-3.5-sonnet"),
             SessionRow(
                 id: "group-1",
@@ -168,7 +177,7 @@ extension SessionRow {
                 verboseLevel: nil,
                 systemSent: true,
                 abortedLastRun: true,
-                tokens: SessionTokenStats(input: 5000, output: 1200, total: 6200, contextTokens: 200_000),
+                tokens: SessionTokenStats(input: 5000, output: 1200, total: 6200, contextTokens: 200_000, pluginContextChars: 2400),
                 model: "claude-opus-4-5"),
             SessionRow(
                 id: "global",
@@ -185,7 +194,7 @@ extension SessionRow {
                 verboseLevel: nil,
                 systemSent: false,
                 abortedLastRun: false,
-                tokens: SessionTokenStats(input: 150, output: 220, total: 370, contextTokens: 200_000),
+                tokens: SessionTokenStats(input: 150, output: 220, total: 370, contextTokens: 200_000, pluginContextChars: nil),
                 model: "gpt-4.1-mini"),
         ]
     }
@@ -312,7 +321,8 @@ enum SessionLoader {
                     input: input,
                     output: output,
                     total: total,
-                    contextTokens: context),
+                    contextTokens: context,
+                    pluginContextChars: entry.pluginContextChars),
                 model: model)
         }.sorted { ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast) }
 

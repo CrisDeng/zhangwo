@@ -12,6 +12,8 @@ export type EmbeddedPiAgentMeta = {
     cacheWrite?: number;
     total?: number;
   };
+  /** Characters injected by plugins (e.g. QMD auto-recall) into the prompt context. */
+  pluginContextChars?: number;
 };
 
 export type EmbeddedPiRunMeta = {

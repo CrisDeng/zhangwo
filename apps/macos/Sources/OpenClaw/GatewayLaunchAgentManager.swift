@@ -84,6 +84,61 @@ enum GatewayLaunchAgentManager {
         _ = await self.runDaemonCommand(["restart"], timeout: 20)
     }
 
+    /// Clean up legacy LaunchAgents and orphan gateway processes before starting a fresh gateway.
+    /// This handles migration from older versions and ensures a clean state.
+    static func cleanupLegacyGateway() async {
+        let uid = getuid()
+        let fm = FileManager.default
+        let homeDir = fm.homeDirectoryForCurrentUser
+        let launchAgentsDir = homeDir.appendingPathComponent("Library/LaunchAgents")
+
+        // Labels to clean up: legacy non-intranet label
+        let labelsToClean = [
+            "ai.openclaw.gateway",
+        ]
+
+        self.logger.info("Starting legacy gateway cleanup")
+
+        for label in labelsToClean {
+            // bootout the service (ignore errors if not loaded)
+            let target = "gui/\(uid)/\(label)"
+            let bootoutProcess = Process()
+            bootoutProcess.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            bootoutProcess.arguments = ["bootout", target]
+            bootoutProcess.standardOutput = FileHandle.nullDevice
+            bootoutProcess.standardError = FileHandle.nullDevice
+            try? bootoutProcess.run()
+            bootoutProcess.waitUntilExit()
+
+            // disable the service (ignore errors)
+            let disableProcess = Process()
+            disableProcess.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            disableProcess.arguments = ["disable", target]
+            disableProcess.standardOutput = FileHandle.nullDevice
+            disableProcess.standardError = FileHandle.nullDevice
+            try? disableProcess.run()
+            disableProcess.waitUntilExit()
+
+            // remove the plist file
+            let plistPath = launchAgentsDir.appendingPathComponent("\(label).plist")
+            if fm.fileExists(atPath: plistPath.path) {
+                try? fm.removeItem(at: plistPath)
+                self.logger.info("Removed legacy plist: \(plistPath.path)")
+            }
+        }
+
+        // Kill any orphan gateway processes
+        let pkillProcess = Process()
+        pkillProcess.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        pkillProcess.arguments = ["-9", "-f", "openclaw.*gateway"]
+        pkillProcess.standardOutput = FileHandle.nullDevice
+        pkillProcess.standardError = FileHandle.nullDevice
+        try? pkillProcess.run()
+        pkillProcess.waitUntilExit()
+
+        self.logger.info("Legacy gateway cleanup completed")
+    }
+
     static func launchdConfigSnapshot() -> LaunchAgentPlistSnapshot? {
         LaunchAgentPlist.snapshot(url: self.plistURL)
     }

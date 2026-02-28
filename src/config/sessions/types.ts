@@ -71,6 +71,8 @@ export type SessionEntry = {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  /** Characters injected by plugins (e.g. QMD auto-recall) into the prompt context. */
+  pluginContextChars?: number;
   modelProvider?: string;
   model?: string;
   contextTokens?: number;

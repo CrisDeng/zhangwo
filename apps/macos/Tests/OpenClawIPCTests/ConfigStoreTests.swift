@@ -4,65 +4,54 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct ConfigStoreTests {
-    @Test func loadUsesRemoteInRemoteMode() async {
-        var localHit = false
+    @Test func loadUsesGateway() async throws {
         var remoteHit = false
         await ConfigStore._testSetOverrides(.init(
-            isRemoteMode: { true },
-            loadLocal: { localHit = true; return ["local": true] },
             loadRemote: { remoteHit = true; return ["remote": true] }))
 
-        let result = await ConfigStore.load()
+        let result = try await ConfigStore.load()
 
         await ConfigStore._testClearOverrides()
         #expect(remoteHit)
-        #expect(!localHit)
         #expect(result["remote"] as? Bool == true)
     }
 
-    @Test func loadUsesLocalInLocalMode() async {
-        var localHit = false
-        var remoteHit = false
+    @Test func loadThrowsWhenGatewayUnavailable() async {
         await ConfigStore._testSetOverrides(.init(
-            isRemoteMode: { false },
-            loadLocal: { localHit = true; return ["local": true] },
-            loadRemote: { remoteHit = true; return ["remote": true] }))
+            loadRemote: { throw ConfigStore.ConfigError.gatewayUnavailable("test") }))
 
-        let result = await ConfigStore.load()
+        do {
+            _ = try await ConfigStore.load()
+            #expect(Bool(false), "Should have thrown")
+        } catch {
+            #expect(error is ConfigStore.ConfigError)
+        }
 
         await ConfigStore._testClearOverrides()
-        #expect(localHit)
-        #expect(!remoteHit)
-        #expect(result["local"] as? Bool == true)
     }
 
-    @Test func saveRoutesToRemoteInRemoteMode() async throws {
-        var localHit = false
+    @Test func saveSendsToGateway() async throws {
         var remoteHit = false
         await ConfigStore._testSetOverrides(.init(
-            isRemoteMode: { true },
-            saveLocal: { _ in localHit = true },
             saveRemote: { _ in remoteHit = true }))
 
-        try await ConfigStore.save(["remote": true])
+        try await ConfigStore.save(["test": true])
 
         await ConfigStore._testClearOverrides()
         #expect(remoteHit)
-        #expect(!localHit)
     }
 
-    @Test func saveRoutesToLocalInLocalMode() async throws {
-        var localHit = false
-        var remoteHit = false
+    @Test func saveThrowsWhenGatewayUnavailable() async {
         await ConfigStore._testSetOverrides(.init(
-            isRemoteMode: { false },
-            saveLocal: { _ in localHit = true },
-            saveRemote: { _ in remoteHit = true }))
+            saveRemote: { _ in throw ConfigStore.ConfigError.gatewayUnavailable("test") }))
 
-        try await ConfigStore.save(["local": true])
+        do {
+            try await ConfigStore.save(["test": true])
+            #expect(Bool(false), "Should have thrown")
+        } catch {
+            #expect(error is ConfigStore.ConfigError)
+        }
 
         await ConfigStore._testClearOverrides()
-        #expect(localHit)
-        #expect(!remoteHit)
     }
 }

@@ -187,13 +187,21 @@ struct ProviderConfigFormView: View {
 
     private var baseUrlSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Base URL")
-                .font(.headline)
+            HStack(spacing: 4) {
+                Text("Base URL")
+                    .font(.headline)
+                Text("*")
+                    .foregroundStyle(.red)
+            }
 
             TextField(
                 "输入 Base URL",
                 text: $customBaseUrl)
                 .textFieldStyle(.roundedBorder)
+
+            Text("API 请求的基础地址，必填项")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(16)
         .background(
@@ -382,7 +390,14 @@ struct ProviderConfigFormView: View {
         if template.authTypes.contains(.oauth) || template.isLocal {
             return true
         }
-        return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        // 检查 API 密钥
+        let hasApiKey = !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        // 检查 Base URL（必填）
+        let hasBaseUrl = !customBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        return hasApiKey && hasBaseUrl
     }
 
     private func loadExistingConfig() {

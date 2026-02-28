@@ -67,6 +67,10 @@ export async function updateSessionStoreAfterAgentRun(params: {
     next.outputTokens = output;
     next.totalTokens = promptTokens > 0 ? promptTokens : (usage.total ?? input);
   }
+  // Track plugin-injected context (e.g. QMD auto-recall)
+  if (result.meta.agentMeta?.pluginContextChars != null) {
+    next.pluginContextChars = result.meta.agentMeta.pluginContextChars;
+  }
   sessionStore[sessionKey] = next;
   await updateSessionStore(storePath, (store) => {
     store[sessionKey] = next;

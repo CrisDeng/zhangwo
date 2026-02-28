@@ -243,7 +243,7 @@ struct TailscaleIntegrationSection: View {
     }
 
     private func loadConfig() async {
-        let root = await ConfigStore.load()
+        guard let root = try? await ConfigStore.load() else { return }
         let gateway = root["gateway"] as? [String: Any] ?? [:]
         let tailscale = gateway["tailscale"] as? [String: Any] ?? [:]
         let modeRaw = (tailscale["mode"] as? String) ?? "serve"
@@ -308,7 +308,9 @@ struct TailscaleIntegrationSection: View {
         connectionMode: AppState.ConnectionMode,
         isPaused: Bool) async -> (Bool, String?)
     {
-        var root = await ConfigStore.load()
+        guard var root = try? await ConfigStore.load() else {
+            return (false, "Gateway 不可用，无法保存配置")
+        }
         var gateway = root["gateway"] as? [String: Any] ?? [:]
         var tailscale = gateway["tailscale"] as? [String: Any] ?? [:]
         tailscale["mode"] = tailscaleMode.rawValue

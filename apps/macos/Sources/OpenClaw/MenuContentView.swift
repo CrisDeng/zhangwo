@@ -194,7 +194,7 @@ struct MenuContent: View {
     }
 
     private func loadBrowserControlEnabled() async {
-        let root = await ConfigStore.load()
+        guard let root = try? await ConfigStore.load() else { return }
         let browser = root["browser"] as? [String: Any]
         let enabled = browser?["enabled"] as? Bool ?? true
         await MainActor.run { self.browserControlEnabled = enabled }
@@ -210,7 +210,9 @@ struct MenuContent: View {
 
     @MainActor
     private static func buildAndSaveBrowserEnabled(_ enabled: Bool) async -> (Bool, ()) {
-        var root = await ConfigStore.load()
+        guard var root = try? await ConfigStore.load() else {
+            return (false, ())
+        }
         var browser = root["browser"] as? [String: Any] ?? [:]
         browser["enabled"] = enabled
         root["browser"] = browser

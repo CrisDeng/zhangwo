@@ -51,6 +51,10 @@ struct SettingsRootView: View {
                     .tabItem { Label("定时任务", systemImage: "calendar") }
                     .tag(SettingsTab.cron)
 
+                QmdSettings()
+                    .tabItem { Label("记忆", systemImage: "brain.head.profile") }
+                    .tag(SettingsTab.memory)
+
                 SkillsSettings(state: self.state)
                     .tabItem { Label("技能", systemImage: "sparkles") }
                     .tag(SettingsTab.skills)
@@ -176,7 +180,7 @@ struct SettingsRootView: View {
 }
 
 enum SettingsTab: CaseIterable {
-    case general, channels, skills, sessions, cron, config, instances, voiceWake, permissions, debug, about
+    case general, channels, skills, sessions, cron, config, instances, voiceWake, memory, permissions, debug, about
     static let windowWidth: CGFloat = 824 // wider
     static let windowHeight: CGFloat = 790 // +10% (more room)
     var title: String {
@@ -189,6 +193,7 @@ enum SettingsTab: CaseIterable {
         case .config: "配置"
         case .instances: "实例"
         case .voiceWake: "语音唤醒"
+        case .memory: "记忆"
         case .permissions: "权限"
         case .debug: "调试"
         case .about: "关于"
@@ -205,6 +210,7 @@ enum SettingsTab: CaseIterable {
         case .config: "slider.horizontal.3"
         case .instances: "network"
         case .voiceWake: "waveform.circle"
+        case .memory: "brain.head.profile"
         case .permissions: "lock.shield"
         case .debug: "ant"
         case .about: "info.circle"

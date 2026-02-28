@@ -253,7 +253,11 @@ final class ExecApprovalsSettingsModel {
     }
 
     func refreshAgents() async {
-        let root = await ConfigStore.load()
+        guard let root = try? await ConfigStore.load() else {
+            self.agentIds = ["main"]
+            self.defaultAgentId = "main"
+            return
+        }
         let agents = root["agents"] as? [String: Any]
         let list = agents?["list"] as? [[String: Any]] ?? []
         var ids: [String] = []

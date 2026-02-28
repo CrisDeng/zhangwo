@@ -565,8 +565,7 @@ struct ModelsQuickSetupView: View {
         .onChange(of: self.store.configLoaded) { _, loaded in
             // 配置加载完成后初始化数据
             if loaded {
-                self.loadConfiguredProviders()
-                self.selectedModel = self.store.currentDefaultModel() ?? ""
+                self.refreshUIFromGateway()
             }
         }
         .onChange(of: self.store.configDirty) { _, _ in
@@ -777,6 +776,14 @@ struct ModelsQuickSetupView: View {
         let currentModel = self.store.currentDefaultModel() ?? ""
         guard model != currentModel else { return }
 
+        await self.saveSelectedModelForce(model)
+    }
+
+    /// 强制保存选中的模型（不检查当前值是否相同）
+    /// 用于删除供应商后自动切换模型的场景
+    private func saveSelectedModelForce(_ model: String) async {
+        guard !model.isEmpty else { return }
+
         self.isSavingModel = true
         defer { self.isSavingModel = false }
 
@@ -785,6 +792,7 @@ struct ModelsQuickSetupView: View {
             value: model)
 
         await self.store.saveConfigDraft()
+        self.logger.info("模型已保存: \(model, privacy: .public)")
     }
 
     // MARK: - 连接测试
@@ -803,6 +811,13 @@ struct ModelsQuickSetupView: View {
     }
 
     // MARK: - Helper Methods
+
+    /// 从 Gateway 数据全量刷新 UI 状态
+    private func refreshUIFromGateway() {
+        self.loadConfiguredProviders()
+        self.selectedModel = self.store.currentDefaultModel() ?? ""
+        self.logger.info("UI 已从 Gateway 刷新，当前模型: \(self.selectedModel, privacy: .public)")
+    }
 
     private func loadConfiguredProviders() {
         var providers: [ProviderConfigState] = []
@@ -823,6 +838,14 @@ struct ModelsQuickSetupView: View {
 
         // 本地服务（如 Ollama）默认视为已配置
         if template.isLocal {
+            return true
+        }
+
+        // 检查 models.providers 中是否有该提供商的配置（适用于 OAuth 等无环境变量的提供商）
+        if let modelsDict = draft["models"] as? [String: Any],
+           let providersDict = modelsDict["providers"] as? [String: Any],
+           let providerConfig = providersDict[template.id] as? [String: Any],
+           !providerConfig.isEmpty {
             return true
         }
 
@@ -861,12 +884,18 @@ struct ModelsQuickSetupView: View {
     private func deleteProvider(_ template: ProviderTemplate) {
         self.logger.info("开始删除提供商: \(template.id, privacy: .public), envKeys: \(template.envKeys, privacy: .public)")
 
-        // 将环境变量设置为空字符串（因为 config.patch 是合并操作，设置 nil 不会真正删除）
-        // isProviderConfigured 检查 !value.isEmpty，所以空字符串会被视为未配置
+        // 使用 NSNull 表示需要删除的键，这样序列化为 JSON 时会变成 null
+        // Gateway 的 applyMergePatch 会删除值为 null 的键
         for envKey in template.envKeys {
-            self.logger.debug("设置 env.\(envKey, privacy: .public) = \"\"")
-            self.store.setConfigValue(at: [.key("env"), .key(envKey)], value: "")
+            self.logger.debug("设置 env.\(envKey, privacy: .public) = null (NSNull)")
+            self.store.setConfigValue(at: [.key("env"), .key(envKey)], value: NSNull())
         }
+
+        // 同时删除 models.providers 下的配置
+        self.logger.debug("设置 models.providers.\(template.id, privacy: .public) = null (NSNull)")
+        self.store.setConfigValue(
+            at: [.key("models"), .key("providers"), .key(template.id)],
+            value: NSNull())
 
         // 打印设置后的 configDraft 中 env 的内容
         let envAfterSet = self.store.configDraft["env"] as? [String: Any] ?? [:]
@@ -916,7 +945,8 @@ struct ModelsQuickSetupView: View {
                 if let model = newModel {
                     self.logger.info("切换到第一个可用模型: \(model, privacy: .public)")
                     self.selectedModel = model
-                    // saveSelectedModel 会在 onChange 中自动触发
+                    // 显式保存，不依赖 onChange（因为 onChange 中的 guard 检查可能因为 configDraft 状态问题而跳过）
+                    await self.saveSelectedModelForce(model)
                 } else {
                     self.logger.info("没有可用模型，清空选择")
                     self.selectedModel = ""

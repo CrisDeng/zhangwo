@@ -68,7 +68,7 @@ extension OnboardingView {
     }
 
     private func loadAgentWorkspace() async -> String? {
-        let root = await ConfigStore.load()
+        guard let root = try? await ConfigStore.load() else { return nil }
         let agents = root["agents"] as? [String: Any]
         let defaults = agents?["defaults"] as? [String: Any]
         return defaults?["workspace"] as? String
@@ -86,7 +86,9 @@ extension OnboardingView {
 
     @MainActor
     private static func buildAndSaveWorkspace(_ workspace: String?) async -> (Bool, String?) {
-        var root = await ConfigStore.load()
+        guard var root = try? await ConfigStore.load() else {
+            return (false, "Gateway 不可用，无法保存配置")
+        }
         var agents = root["agents"] as? [String: Any] ?? [:]
         var defaults = agents["defaults"] as? [String: Any] ?? [:]
         let trimmed = workspace?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
